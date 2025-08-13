@@ -91,7 +91,7 @@ export default function VerifyPage() {
 
   return (
     <div className="space-y-6">
-      <div className="text-[13px] text-center py-2 bg-green-50 border border-green-100 rounded">Emails found by Anymail Finder are already verified. You only need to use the Verifier for emails found elsewhere.</div>
+      <div className="text-[13px] text-center py-2 bg-green-50 border border-green-100 rounded">Emails found by Email Finder are already verified. You only need to use the Verifier for emails found elsewhere.</div>
 
       <div className="border rounded-lg p-5 bg-white">
         <h3 className="text-xl font-semibold mb-4">Single Email Verification</h3>
