@@ -1,0 +1,17 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "http://173.249.7.231:8500/:path*" },
+    { "source": "/(.*)", "destination": "/" }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [ { "type": "host", "value": "www.mailsfinder.com" } ],
+      "destination": "https://mailsfinder.com/:path*",
+      "permanent": true
+    }
+  ]
+} 
