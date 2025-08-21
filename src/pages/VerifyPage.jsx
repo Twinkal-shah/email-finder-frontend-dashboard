@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { verifyEmail } from '../services/api.js'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
 
 // function normalizeVerifyStatus(payload) {
 //   if (!payload) return '-'
@@ -91,64 +92,85 @@ export default function VerifyPage() {
 
   return (
     <div className="space-y-6">
-      <div className="text-[13px] text-center py-2 bg-green-50 border border-green-100 rounded">Emails found by Email Finder are already verified. You only need to use the Verifier for emails found elsewhere.</div>
+      <div className="text-[13px] text-center py-2 bg-accent/50 border border-border rounded-md">Emails found by Email Finder are already verified. You only need to use the Verifier for emails found elsewhere.</div>
 
-      <div className="border rounded-lg p-5 bg-white">
-        <h3 className="text-xl font-semibold mb-4">Single Email Verification</h3>
-        <form onSubmit={onVerify} className="flex gap-3">
-          <input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="matt@example.com" className="border rounded-md px-3 py-2 w-full max-w-md" />
-          <button type="submit" className="bg-blue-600 text-white rounded-md px-4 py-2 disabled:opacity-60" disabled={verifyMutation.isPending}>
-            {verifyMutation.isPending ? 'Verifying...' : 'Verify Email'}
-          </button>
-        </form>
+      <Card>
+        <CardHeader>
+          <CardTitle>Single Email Verification</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onVerify} className="flex flex-col sm:flex-row gap-3">
+            <input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="matt@example.com" className="border border-input rounded-md px-3 py-2 w-full max-w-md bg-background" />
+          <button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 disabled:opacity-60 transition-colors" disabled={verifyMutation.isPending}>
+              {verifyMutation.isPending ? 'Verifying...' : 'Verify Email'}
+            </button>
+          </form>
 
-        {verifyMutation.isError && (
-          <div className="text-red-600 text-sm mt-3">{verifyMutation.error?.message || 'Error'}</div>
-        )}
+          {verifyMutation.isError && (
+            <div className="text-destructive text-sm mt-3">{verifyMutation.error?.message || 'Error'}</div>
+          )}
 
-        {single && (
-          <div className="text-sm space-y-2 mt-4">
-            <div className="font-medium">Status: <span className="px-2 py-1 rounded bg-gray-100">{singleStatus}</span></div>
-            <div>
-              <div className="text-gray-600 mb-1">Details</div>
-              <pre className="bg-gray-50 border rounded p-3 overflow-auto max-h-64 text-xs">{JSON.stringify(single, null, 2)}</pre>
+          {single && (
+            <div className="text-sm space-y-2 mt-4">
+              <div className="font-medium">Status: <span className="px-2 py-1 rounded bg-muted">{singleStatus}</span></div>
+              <div>
+                <div className="text-muted-foreground mb-1">Details</div>
+                <pre className="bg-muted/50 border border-border rounded p-3 overflow-auto max-h-64 text-xs">{JSON.stringify(single, null, 2)}</pre>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Verify Your List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <input type="file" accept=".csv,.xlsx,.xls" onChange={(e)=> e.target.files?.[0] && handleFile(e.target.files[0])} className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+              <button onClick={onBulkVerify} className="bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 rounded-md transition-colors" disabled={!bulkRows.length}>Start Bulk Verify</button>
+              <button onClick={exportBulkCsv} className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-2 rounded-md disabled:opacity-60 transition-colors" disabled={!bulkResults.length}>Export CSV</button>
+              <div className="text-sm text-muted-foreground">Rows loaded: {bulkRows.length}</div>
             </div>
           </div>
-        )}
-      </div>
-
-      <div className="border rounded-lg p-5 bg-white">
-        <h3 className="text-xl font-semibold mb-4">Verify Your List</h3>
-        <div className="space-y-3">
-          <input type="file" accept=".csv,.xlsx,.xls" onChange={(e)=> e.target.files?.[0] && handleFile(e.target.files[0])} />
-          <div className="flex gap-2">
-            <button onClick={onBulkVerify} className="bg-gray-900 text-white px-3 py-2 rounded-md" disabled={!bulkRows.length}>Start Bulk Verify</button>
-            <button onClick={exportBulkCsv} className="bg-blue-600 text-white px-3 py-2 rounded-md disabled:opacity-60" disabled={!bulkResults.length}>Export CSV</button>
-            <div className="text-sm text-gray-600">Rows loaded: {bulkRows.length}</div>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {!!bulkResults.length && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm border bg-white">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left p-2 border">Email</th>
-                <th className="text-left p-2 border">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bulkResults.map((r, i) => (
-                <tr key={i}>
-                  <td className="p-2 border">{r.email}</td>
-                  <td className="p-2 border">{r.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Bulk Verification Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-border">
+                <thead>
+                  <tr className="bg-muted/50">
+                    <th className="border border-border px-4 py-2 text-left text-foreground">Email</th>
+                    <th className="border border-border px-4 py-2 text-left text-foreground">Status</th>
+                    <th className="border border-border px-4 py-2 text-left text-foreground">Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkResults.map((result, index) => (
+                    <tr key={index} className="hover:bg-muted/30">
+                      <td className="border border-border px-4 py-2 text-foreground">{result.email}</td>
+                      <td className="border border-border px-4 py-2">
+                        <span className="px-2 py-1 rounded bg-muted text-sm text-foreground">{result.status}</span>
+                      </td>
+                      <td className="border border-border px-4 py-2">
+                        <pre className="text-xs overflow-auto max-h-20 text-muted-foreground">{JSON.stringify(result._raw, null, 2)}</pre>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
-} 
+}

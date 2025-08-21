@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { findEmail } from '../services/api.js'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.jsx'
 
 function normalizeConfidence(raw) {
   if (raw == null) return null
@@ -146,91 +147,108 @@ export default function BulkSearchPage() {
 
   return (
     <div className="space-y-6">
-      <div className="text-[13px] text-center py-2 bg-green-50 border border-green-100 rounded">Start your 3 days trial today.</div>
+      <div className="text-[13px] text-center py-2 bg-accent/50 border border-border rounded-md">Start your 3 days trial today.</div>
 
-      <div className="border rounded-lg p-6 bg-white">
-        <h2 className="text-2xl font-semibold mb-3">Bulk Email Finder</h2>
-        <div className="flex flex-col md:flex-row md:items-center gap-3">
-          <label className="inline-block">
-            <span className="sr-only">Upload List</span>
-            <input type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={(e)=> e.target.files?.[0] && handleFile(e.target.files[0])} />
-            <div className="px-4 py-2 rounded-md bg-blue-600 text-white cursor-pointer inline-flex items-center">Upload CSV/XLSX</div>
-          </label>
-          <div className="text-sm text-gray-600">Expected columns: <span className="font-medium">Full Name</span> and <span className="font-medium">Domain</span>. Optional: <span className="font-medium">Role</span>.</div>
-        </div>
-        <div className="text-gray-500 text-xs mt-2">You can also add rows manually below.</div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Bulk Email Finder</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <label className="inline-block">
+              <span className="sr-only">Upload List</span>
+              <input type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={(e)=> e.target.files?.[0] && handleFile(e.target.files[0])} />
+              <div className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer inline-flex items-center transition-colors">Upload CSV/XLSX</div>
+            </label>
+            <div className="text-sm text-muted-foreground">Expected columns: <span className="font-medium text-foreground">Full Name</span> and <span className="font-medium text-foreground">Domain</span>. Optional: <span className="font-medium text-foreground">Role</span>.</div>
+          </div>
+          <div className="text-muted-foreground text-xs mt-2">You can also add rows manually below.</div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setRows(prev => [...prev, { name: '', domain: '', role: '' }])} className="px-3 py-2 rounded-md border">Add Row</button>
-          <button onClick={runBatches} disabled={!mapped.length || isRunning} className="px-3 py-2 rounded-md bg-blue-600 text-white disabled:opacity-60">
-            {isRunning ? 'Running...' : 'Run Bulk Search'}
-          </button>
-          <button onClick={exportCsv} disabled={!normalized.length} className="px-3 py-2 rounded-md bg-gray-900 text-white disabled:opacity-60">Export CSV</button>
-        </div>
-        <div className="w-full h-2 bg-gray-200 rounded">
-          <div className="h-2 bg-blue-600 rounded" style={{ width: `${progress.total ? (progress.done/progress.total)*100 : 0}%` }} />
-        </div>
-        <div className="text-sm text-gray-600">Rows ready: {mapped.length}</div>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <button onClick={() => setRows(prev => [...prev, { name: '', domain: '', role: '' }])} className="px-3 py-2 rounded-md border border-border hover:bg-accent hover:text-accent-foreground transition-colors">Add Row</button>
+              <button onClick={runBatches} disabled={!mapped.length || isRunning} className="px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                {isRunning ? 'Running...' : 'Run Bulk Search'}
+              </button>
+              <button onClick={exportCsv} disabled={!normalized.length} className="px-3 py-2 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-60 transition-colors">Export CSV</button>
+            </div>
+            <div className="w-full h-2 bg-muted rounded">
+              <div className="h-2 bg-primary rounded transition-all duration-300" style={{ width: `${progress.total ? (progress.done/progress.total)*100 : 0}%` }} />
+            </div>
+            <div className="text-sm text-muted-foreground">Rows ready: {mapped.length}</div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm border bg-white">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="text-left p-2 border" style={{minWidth:'180px'}}>Full Name</th>
-              <th className="text-left p-2 border" style={{minWidth:'160px'}}>Domain</th>
-              {/* <th className="text-left p-2 border">Role (optional)</th> */}
-              <th className="text-left p-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td className="p-2 border"><input className="w-full border rounded px-2 py-1" value={r.name || ''} onChange={(e)=> setRows(prev => prev.map((x,idx)=> idx===i? { ...x, name: e.target.value }: x))} placeholder="e.g., Jane Doe" /></td>
-                <td className="p-2 border"><input className="w-full border rounded px-2 py-1" value={r.domain || ''} onChange={(e)=> setRows(prev => prev.map((x,idx)=> idx===i? { ...x, domain: e.target.value }: x))} placeholder="company.com" /></td>
-                {/* <td className="p-2 border"><input className="w-full border rounded px-2 py-1" value={r.role || ''} onChange={(e)=> setRows(prev => prev.map((x,idx)=> idx===i? { ...x, role: e.target.value }: x))} placeholder="e.g., SDR" /></td> */}
-                <td className="p-2 border"><button className="text-red-600" onClick={()=> setRows(prev => prev.filter((_,idx)=> idx!==i))}>Remove</button></td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td className="p-2 border text-gray-500" colSpan={4}>Upload a file or click "Add Row" to start building your list.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="text-left p-3 text-foreground font-medium" style={{minWidth:'180px'}}>Full Name</th>
+                  <th className="text-left p-3 text-foreground font-medium" style={{minWidth:'160px'}}>Domain</th>
+                  <th className="text-left p-3 text-foreground font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} className="border-b border-border hover:bg-muted/30">
+                    <td className="p-3"><input className="w-full border border-input rounded-md px-2 py-1 bg-background text-foreground" value={r.name || ''} onChange={(e)=> setRows(prev => prev.map((x,idx)=> idx===i? { ...x, name: e.target.value }: x))} placeholder="e.g., Jane Doe" /></td>
+                    <td className="p-3"><input className="w-full border border-input rounded-md px-2 py-1 bg-background text-foreground" value={r.domain || ''} onChange={(e)=> setRows(prev => prev.map((x,idx)=> idx===i? { ...x, domain: e.target.value }: x))} placeholder="company.com" /></td>
+                    <td className="p-3"><button className="text-destructive hover:text-destructive/80 transition-colors" onClick={()=> setRows(prev => prev.filter((_,idx)=> idx!==i))}>Remove</button></td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td className="p-3 text-muted-foreground text-center" colSpan={3}>Upload a file or click "Add Row" to start building your list.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {!!normalized.length && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm border bg-white mt-6">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left p-2 border">Name</th>
-                <th className="text-left p-2 border">Email</th>
-                <th className="text-left p-2 border">catch_all</th>
-                <th className="text-left p-2 border">domain</th>
-                <th className="text-left p-2 border">mx</th>
-                <th className="text-left p-2 border">status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {normalized.map((r, i) => (
-                <tr key={i}>
-                  <td className="p-2 border">{r.name}</td>
-                  <td className="p-2 border">{r.email || '-'}</td>
-                  <td className="p-2 border">{r.catch_all == null ? '-' : String(r.catch_all)}</td>
-                  <td className="p-2 border">{r.domain || '-'}</td>
-                  <td className="p-2 border">{Array.isArray(r.mx) ? r.mx.join(', ') : (r.mx && typeof r.mx === 'object' ? JSON.stringify(r.mx) : (r.mx == null ? '-' : String(r.mx)))}</td>
-                  <td className="p-2 border">{r.status || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Search Results</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left p-3 text-foreground font-medium">Name</th>
+                    <th className="text-left p-3 text-foreground font-medium">Email</th>
+                    <th className="text-left p-3 text-foreground font-medium">Catch All</th>
+                    <th className="text-left p-3 text-foreground font-medium">Domain</th>
+                    <th className="text-left p-3 text-foreground font-medium">MX</th>
+                    <th className="text-left p-3 text-foreground font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {normalized.map((r, i) => (
+                    <tr key={i} className="border-b border-border hover:bg-muted/30">
+                       <td className="p-3 text-foreground">{(r.name && typeof r.name === 'object') ? JSON.stringify(r.name) : (r.name || '-')}</td>
+                      <td className="p-3 text-foreground">{r.email || '-'}</td>
+                      <td className="p-3 text-foreground">{r.catch_all == null ? '-' : String(r.catch_all)}</td>
+                      <td className="p-3 text-foreground">{r.domain || '-'}</td>
+                      <td className="p-3 text-foreground">{Array.isArray(r.mx) ? r.mx.join(', ') : (r.mx && typeof r.mx === 'object' ? JSON.stringify(r.mx) : (r.mx == null ? '-' : String(r.mx)))}</td>
+                       <td className="p-3 text-foreground">{(r.status && typeof r.status === 'object') ? JSON.stringify(r.status) : (r.status || '-')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
-} 
+}

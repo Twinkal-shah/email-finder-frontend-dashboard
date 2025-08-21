@@ -3,6 +3,7 @@ import { useFindResults } from '../contexts/findResults.jsx'
 import { useMutation } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { findEmail } from '../services/api.js'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
 
 function normalizeConfidence(raw, statusLike, validLike) {
   if (raw == null) {
@@ -35,7 +36,17 @@ function normalizeConfidence(raw, statusLike, validLike) {
 
 function pickName(record, fallbackName) {
   const joined = [record?.first_name, record?.last_name].filter(Boolean).join(' ').trim()
-  return record?.name || record?.full_name || (joined || undefined) || fallbackName || '-'
+  const candidate = record?.name ?? record?.full_name ?? joined
+  if (typeof candidate === 'string') return candidate || (fallbackName || '-')
+  if (candidate && typeof candidate === 'object') {
+    // Attempt common shapes, else stringify
+    const composed = [candidate.first_name, candidate.last_name, candidate.value]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+    return composed || JSON.stringify(candidate)
+  }
+  return fallbackName || '-'
 }
 
 function ConfidencePill({ value }) {
@@ -146,14 +157,15 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-6">
-      <div className="text-[13px] text-center py-2 bg-green-50 border border-green-100 rounded">Start your 3 days trial today.</div>
+      <div className="text-[13px] text-center py-2 bg-accent/50 border border-border rounded-md">Start your 3 days trial today.</div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-5">
-          <h2 className="text-2xl font-semibold">Start your Search</h2>
+          <h2 className="text-2xl font-semibold text-center lg:text-left">Start your Search</h2>
 
-          <div className="border rounded-lg p-4 space-y-4 bg-white">
-            <div className="text-sm font-medium">Search</div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-sm font-medium mb-4">Search</div>
             <div className="flex flex-col gap-2">
               {/* <label className="flex items-center gap-2 text-sm">
                 <input type="radio" name="mode" checked={mode==='Company'} onChange={()=>setMode('Company')} />
@@ -164,49 +176,58 @@ export default function SearchPage() {
                 <span>Person search</span>
               </label>
             </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <form onSubmit={onSubmit} className="space-y-3">
-            {mode === 'Company' ? (
-              <div>
-                <div className="text-sm mb-1">Company or domain:</div>
-                <input value={domainOrCompany} onChange={(e)=>setDomainOrCompany(e.target.value)} placeholder="company.com or Company Inc" className="border rounded-md px-3 py-2 w-full" />
-              </div>
-            ) : (
-              <>
-                <div>
-                  <div className="text-sm mb-1">Domain (recommended) or company name:</div>
-                  <input value={domain} onChange={(e)=>setDomain(e.target.value)} placeholder="company.com" className="border rounded-md px-3 py-2 w-full" />
+          <Card>
+            <CardContent className="pt-6">
+              <form onSubmit={onSubmit} className="space-y-3">
+                {mode === 'Company' ? (
+                  <div>
+                    <div className="text-sm mb-1">Company or domain:</div>
+                    <input value={domainOrCompany} onChange={(e)=>setDomainOrCompany(e.target.value)} placeholder="company.com or Company Inc" className="border border-input rounded-md px-3 py-2 w-full bg-background" />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-sm mb-1">Domain (recommended) or company name:</div>
+                      <input value={domain} onChange={(e)=>setDomain(e.target.value)} placeholder="company.com" className="border border-input rounded-md px-3 py-2 w-full bg-background" />
+                    </div>
+                    <div>
+                      <div className="text-sm mb-1">Full name(s):</div>
+                      <input value={name} onChange={(e)=>setName(e.target.value)} placeholder="e.g., Jane Doe, John Doe" className="border border-input rounded-md px-3 py-2 w-full bg-background" />
+                    </div>
+                  </>
+                )}
+                <div className="flex gap-2">
+                  <button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 disabled:opacity-60 transition-colors" disabled={findMutation.isPending}>
+                    {findMutation.isPending ? 'Searching...' : 'Search'}
+                  </button>
+                  <button type="button" onClick={()=>{ setDomain(''); setName(''); setDomainOrCompany(''); setFormError('') }} className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md px-4 py-2 transition-colors">
+                    Clear
+                  </button>
                 </div>
-                <div>
-                  <div className="text-sm mb-1">Full name(s):</div>
-                  <input value={name} onChange={(e)=>setName(e.target.value)} placeholder="e.g., Jane Doe, John Doe" className="border rounded-md px-3 py-2 w-full" />
-                </div>
-              </>
-            )}
-            <div className="flex gap-2">
-              <button type="submit" className="bg-blue-600 text-white rounded-md px-4 py-2 disabled:opacity-60" disabled={findMutation.isPending}>
-                {findMutation.isPending ? 'Searching...' : 'Search'}
-              </button>
-              <button type="button" onClick={()=>{ setDomain(''); setName(''); setDomainOrCompany(''); setFormError('') }} className="bg-gray-200 text-gray-900 rounded-md px-4 py-2">
-                Clear
-              </button>
-            </div>
-          </form>
+              </form>
+            </CardContent>
+          </Card>
 
           {(formError || findMutation.isError) && (
             <div className="text-red-600 text-sm">{formError || findMutation.error?.message || 'Error'}</div>
           )}
 
           {top && (
-            <div className="border rounded-lg p-4 bg-white flex items-center justify-between">
-              <div>
-                <div className="text-xs text-gray-500">Top match</div>
-                <div className="text-base font-medium">{top._name}</div>
-                <div className="text-sm text-gray-700">{top.email || '-'}</div>
-              </div>
-              {/* <ConfidencePill value={top._confidence} /> */}
-            </div>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Top match</div>
+                    <div className="text-base font-medium">{top._name}</div>
+                    <div className="text-sm text-foreground">{top.email || '-'}</div>
+                  </div>
+                  {/* <ConfidencePill value={top._confidence} /> */}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* {payload && (
@@ -223,46 +244,43 @@ export default function SearchPage() {
       </div>
 
       {!!tableRows.length && (
-        <div className="space-y-2">
-          <div className="flex justify-end">
-            <button onClick={exportCsv} className="px-3 py-2 rounded-md bg-gray-900 text-white">Export CSV</button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm border bg-white">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="text-left p-2 border">Name</th>
-                  <th className="text-left p-2 border">Email</th>
-                  <th className="text-left p-2 border">catch_all</th>
-                  {/* <th className="text-left p-2 border">connections</th> */}
-                  <th className="text-left p-2 border">domain</th>
-                  <th className="text-left p-2 border">mx</th>
-                  <th className="text-left p-2 border">status</th>
-                  {/* <th className="text-left p-2 border">time_exec</th>
-                  <th className="text-left p-2 border">user_name</th>
-                  <th className="text-left p-2 border">ver_ops</th> */}
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map((r, i) => (
-                  <tr key={i}>
-                    <td className="p-2 border">{r._name}</td>
-                    <td className="p-2 border">{r.email || '-'}</td>
-                    <td className="p-2 border">{r.catch_all == null ? '-' : String(r.catch_all)}</td>
-                    {/* <td className="p-2 border">{Array.isArray(r.connections) ? r.connections.join(', ') : (r.connections == null ? '-' : String(r.connections))}</td> */}
-                    <td className="p-2 border">{r.domain || '-'}</td>
-                    <td className="p-2 border">{Array.isArray(r.mx) ? r.mx.join(', ') : (r.mx && typeof r.mx === 'object' ? JSON.stringify(r.mx) : (r.mx == null ? '-' : String(r.mx)))}</td>
-                    <td className="p-2 border">{r.status || '-'}</td>
-                    {/* <td className="p-2 border">{r.time_exec == null ? '-' : String(r.time_exec)}</td> */}
-                    {/* <td className="p-2 border">{r.user_name || '-'}</td> */}
-                    {/* <td className="p-2 border">{Array.isArray(r.ver_ops) ? r.ver_ops.join(', ') : (r.ver_ops && typeof r.ver_ops === 'object' ? JSON.stringify(r.ver_ops) : (r.ver_ops == null ? '-' : String(r.ver_ops)))}</td> */}
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg">Search Results</CardTitle>
+              <button onClick={exportCsv} className="px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">Export CSV</button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm border border-border">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-2 border border-border">Name</th>
+                    <th className="text-left p-2 border border-border">Email</th>
+                    <th className="text-left p-2 border border-border">catch_all</th>
+                    <th className="text-left p-2 border border-border">domain</th>
+                    <th className="text-left p-2 border border-border">mx</th>
+                    <th className="text-left p-2 border border-border">status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  {tableRows.map((r, i) => (
+                    <tr key={i} className="hover:bg-muted/30">
+                      <td className="p-2 border border-border">{r._name}</td>
+                      <td className="p-2 border border-border">{r.email || '-'}</td>
+                      <td className="p-2 border border-border">{r.catch_all == null ? '-' : String(r.catch_all)}</td>
+                      <td className="p-2 border border-border">{r.domain || '-'}</td>
+                      <td className="p-2 border border-border">{Array.isArray(r.mx) ? r.mx.join(', ') : (r.mx && typeof r.mx === 'object' ? JSON.stringify(r.mx) : (r.mx == null ? '-' : String(r.mx)))}</td>
+                      <td className="p-2 border border-border">{(r.status && typeof r.status === 'object') ? JSON.stringify(r.status) : (r.status || '-')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
-} 
+}
