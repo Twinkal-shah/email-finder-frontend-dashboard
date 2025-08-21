@@ -29,6 +29,8 @@ function Sidebar() {
     logout()
   }
 
+
+
   return (
     <aside className="w-full lg:w-72 border-b lg:border-b-0 lg:border-r border-border bg-card p-4 flex flex-col justify-between min-h-auto lg:min-h-[calc(100vh-3.5rem)]">
       <div>
@@ -96,6 +98,8 @@ function Topbar() {
     logout()
   }
 
+
+
   return (
     <header className="h-14 border-b border-border px-4 flex items-center justify-between bg-card">
       <div className="font-semibold text-foreground">Email Finder Dashboard</div>
@@ -103,7 +107,7 @@ function Topbar() {
         <span className="hidden sm:inline">Credits: 0</span>
         {isAuthenticated ? (
           <div className="flex items-center gap-2">
-            <span className="text-foreground font-medium">{user.name}</span>
+            <span className="text-foreground font-medium">{user?.name || 'Unknown User'}</span>
             <button 
               onClick={handleLogout}
               className="px-3 py-1.5 rounded-md border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
