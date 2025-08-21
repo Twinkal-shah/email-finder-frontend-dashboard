@@ -8,10 +8,10 @@ const AuthContext = createContext(null)
 function getUrlParams() {
   const params = new URLSearchParams(window.location.search)
   return {
-    name: params.get('name'),
-    email: params.get('email'),
-    token: params.get('token'),
-    user_id: params.get('user_id')
+    name: params.get('name') ? decodeURIComponent(params.get('name')) : null,
+    email: params.get('email') ? decodeURIComponent(params.get('email')) : null,
+    token: params.get('token') ? decodeURIComponent(params.get('token')) : null,
+    user_id: params.get('user_id') ? decodeURIComponent(params.get('user_id')) : null
   }
 }
 
