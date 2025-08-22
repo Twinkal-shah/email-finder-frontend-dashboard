@@ -9,6 +9,11 @@ const AuthContext = createContext(null)
 // Helper function to parse URL parameters
 function getUrlParams() {
   try {
+    // Log the current URL for debugging
+    console.log('Current URL:', window.location.href)
+    console.log('Search params:', window.location.search)
+    
+    // Use window.location.search directly instead of constructing a new URL
     const params = new URLSearchParams(window.location.search)
     return {
       name: params.get('name') ? decodeURIComponent(params.get('name')) : null,
@@ -21,6 +26,7 @@ function getUrlParams() {
     }
   } catch (error) {
     console.error('Error parsing URL parameters:', error)
+    console.error('URL that caused error:', window.location.href)
     return {
       name: null,
       email: null,
@@ -130,13 +136,23 @@ function getStoredTokens() {
 // Helper function to clean URL parameters
 function cleanUrlParams() {
   try {
-    const url = new URL(window.location.href)
+    console.log('Cleaning URL parameters from:', window.location.href)
+    
+    // Use URLSearchParams directly with window.location.search
+    const params = new URLSearchParams(window.location.search)
     const paramsToRemove = ['name', 'email', 'token', 'access_token', 'refresh_token', 'user_id', 'expires_at']
     
-    paramsToRemove.forEach(param => url.searchParams.delete(param))
-    window.history.replaceState({}, '', url.toString())
+    paramsToRemove.forEach(param => params.delete(param))
+    
+    // Construct the new URL without using new URL()
+    const baseUrl = window.location.origin + window.location.pathname
+    const newUrl = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl
+    
+    window.history.replaceState({}, '', newUrl)
+    console.log('URL cleaned to:', newUrl)
   } catch (error) {
     console.error('Error cleaning URL parameters:', error)
+    console.error('URL that caused error:', window.location.href)
     // Fallback: just remove the search params entirely
     const baseUrl = window.location.origin + window.location.pathname
     window.history.replaceState({}, '', baseUrl)
