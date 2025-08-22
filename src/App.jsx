@@ -46,6 +46,8 @@ function Sidebar() {
           <SidebarItem to="/verify" label="Verify" />
         </nav>
 
+
+
         {/* <SectionLabel>LEAD TOOLS</SectionLabel>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-gray-400">
@@ -134,6 +136,7 @@ function Layout() {
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/verify" element={<VerifyPage />} />
                 <Route path="/bulk-search" element={<BulkSearchPage />} />
+
                 <Route path="/" element={<Navigate to="/search" replace />} />
                 <Route path="*" element={<div className="p-6 text-center">Not Found</div>} />
               </Routes>
@@ -144,6 +147,8 @@ function Layout() {
     </div>
   )
 }
+
+
 
 export default function App() {
   return (
