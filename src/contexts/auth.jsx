@@ -8,15 +8,28 @@ const AuthContext = createContext(null)
 
 // Helper function to parse URL parameters
 function getUrlParams() {
-  const params = new URLSearchParams(window.location.search)
-  return {
-    name: params.get('name') ? decodeURIComponent(params.get('name')) : null,
-    email: params.get('email') ? decodeURIComponent(params.get('email')) : null,
-    token: params.get('token') ? decodeURIComponent(params.get('token')) : null,
-    access_token: params.get('access_token') ? decodeURIComponent(params.get('access_token')) : null,
-    refresh_token: params.get('refresh_token') ? decodeURIComponent(params.get('refresh_token')) : null,
-    user_id: params.get('user_id') ? decodeURIComponent(params.get('user_id')) : null,
-    expires_at: params.get('expires_at') ? decodeURIComponent(params.get('expires_at')) : null
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return {
+      name: params.get('name') ? decodeURIComponent(params.get('name')) : null,
+      email: params.get('email') ? decodeURIComponent(params.get('email')) : null,
+      token: params.get('token') ? decodeURIComponent(params.get('token')) : null,
+      access_token: params.get('access_token') ? decodeURIComponent(params.get('access_token')) : null,
+      refresh_token: params.get('refresh_token') ? decodeURIComponent(params.get('refresh_token')) : null,
+      user_id: params.get('user_id') ? decodeURIComponent(params.get('user_id')) : null,
+      expires_at: params.get('expires_at') ? decodeURIComponent(params.get('expires_at')) : null
+    }
+  } catch (error) {
+    console.error('Error parsing URL parameters:', error)
+    return {
+      name: null,
+      email: null,
+      token: null,
+      access_token: null,
+      refresh_token: null,
+      user_id: null,
+      expires_at: null
+    }
   }
 }
 
@@ -116,11 +129,18 @@ function getStoredTokens() {
 
 // Helper function to clean URL parameters
 function cleanUrlParams() {
-  const url = new URL(window.location.href)
-  const paramsToRemove = ['name', 'email', 'token', 'access_token', 'refresh_token', 'user_id', 'expires_at']
-  
-  paramsToRemove.forEach(param => url.searchParams.delete(param))
-  window.history.replaceState({}, '', url.toString())
+  try {
+    const url = new URL(window.location.href)
+    const paramsToRemove = ['name', 'email', 'token', 'access_token', 'refresh_token', 'user_id', 'expires_at']
+    
+    paramsToRemove.forEach(param => url.searchParams.delete(param))
+    window.history.replaceState({}, '', url.toString())
+  } catch (error) {
+    console.error('Error cleaning URL parameters:', error)
+    // Fallback: just remove the search params entirely
+    const baseUrl = window.location.origin + window.location.pathname
+    window.history.replaceState({}, '', baseUrl)
+  }
 }
 
 // Helper function to listen for cross-domain messages
