@@ -8,8 +8,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Create Supabase client with custom options to prevent automatic URL parsing
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false
+  }
+})
 
 // Auth service functions
 export const authService = {
