@@ -15,14 +15,25 @@ window.URL = function(url, base) {
     return new originalURL(url, base)
   } catch (error) {
     console.warn('URL construction failed, returning fallback:', error)
-    // Return a fallback URL object
+    // Return a fallback URL object with all necessary methods
     return {
       href: '',
       origin: '',
       pathname: '',
       search: '',
       hash: '',
-      toString: () => ''
+      host: '',
+      hostname: '',
+      port: '',
+      protocol: '',
+      username: '',
+      password: '',
+      searchParams: new URLSearchParams(),
+      toString: () => '',
+      toJSON: () => '',
+      replace: function(searchValue, replaceValue) {
+        return this.href.replace(searchValue, replaceValue)
+      }
     }
   }
 }
