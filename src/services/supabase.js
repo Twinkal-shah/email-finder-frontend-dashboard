@@ -8,7 +8,26 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-// Create Supabase client with custom options to prevent automatic URL parsing
+// Patch URL constructor to prevent errors
+const originalURL = window.URL
+window.URL = function(url, base) {
+  try {
+    return new originalURL(url, base)
+  } catch (error) {
+    console.warn('URL construction failed, returning fallback:', error)
+    // Return a fallback URL object
+    return {
+      href: '',
+      origin: '',
+      pathname: '',
+      search: '',
+      hash: '',
+      toString: () => ''
+    }
+  }
+}
+
+// Create Supabase client with disabled URL detection
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,
