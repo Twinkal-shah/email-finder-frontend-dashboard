@@ -21,14 +21,56 @@ function getUrlParams() {
 }
 
 // Helper function to validate access token with Supabase
-async function validateAccessToken(accessToken) {
+async function validateAccessToken(accessToken, refreshToken = null) {
   try {
-    // Set the session with the provided token
-    const { data: { user }, error } = await authService.getUser(accessToken)
+    console.log('Validating token:', accessToken.substring(0, 50) + '...')
+    
+    // Import supabase directly to avoid circular dependency
+    const { supabase } = await import('../services/supabase')
+    
+    // Try to decode the JWT token first to check if it's valid
+    try {
+      const payload = JSON.parse(atob(accessToken.split('.')[1]))
+      console.log('Token payload:', payload)
+      
+      // Check if token is expired
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        const expiredDate = new Date(payload.exp * 1000)
+        console.error(`Token is expired. Expired at: ${expiredDate.toISOString()}, Current time: ${new Date().toISOString()}`)
+        return null
+      }
+      
+      console.log('Token is valid and not expired')
+    } catch (decodeError) {
+      console.error('Failed to decode token:', decodeError)
+      return null
+    }
+    
+    // Set the session with the provided tokens
+    const sessionData = {
+      access_token: accessToken,
+      refresh_token: refreshToken || 'dummy_refresh_token' // Supabase requires a refresh token
+    }
+    
+    const { data, error } = await supabase.auth.setSession(sessionData)
+    
+    console.log('Session set result:', { data, error })
+    
     if (error) {
       console.error('Token validation error:', error)
       return null
     }
+    
+    // Get the user from the session
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    console.log('User fetch result:', { user, userError })
+    
+    if (userError) {
+      console.error('User fetch error:', userError)
+      return null
+    }
+    
     return user
   } catch (error) {
     console.error('Token validation failed:', error)
@@ -74,7 +116,7 @@ function getStoredTokens() {
 
 // Helper function to clean URL parameters
 function cleanUrlParams() {
-  const url = new URL(window.location)
+  const url = new URL(window.location.href)
   const paramsToRemove = ['name', 'email', 'token', 'access_token', 'refresh_token', 'user_id', 'expires_at']
   
   paramsToRemove.forEach(param => url.searchParams.delete(param))
@@ -120,13 +162,18 @@ export function AuthProvider({ children }) {
         
         // 1. Extract URL parameters when the page loads
         const urlParams = getUrlParams()
+        console.log('URL Params:', urlParams)
         
         if (urlParams.access_token || urlParams.token) {
+          console.log('Found token, attempting validation...')
           // 2. Validate the access token with Supabase
           const tokenToValidate = urlParams.access_token || urlParams.token
-          const validatedUser = await validateAccessToken(tokenToValidate)
+          console.log('Token to validate:', tokenToValidate.substring(0, 50) + '...')
+          const validatedUser = await validateAccessToken(tokenToValidate, urlParams.refresh_token)
+          console.log('Validation result:', validatedUser)
           
           if (validatedUser) {
+            console.log('User validated successfully:', validatedUser.email)
             // 3. Initialize the user session in your dashboard
             const userData = {
               id: validatedUser.id,

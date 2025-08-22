@@ -145,6 +145,35 @@ export const authService = {
       console.error('Error getting session from URL:', error)
       return null
     }
+  },
+
+  // Validate access token and get user
+  async getUser(accessToken) {
+    try {
+      // Set the session with the provided token
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: null
+      })
+      
+      if (error) {
+        console.error('Error setting session:', error)
+        return { data: { user: null }, error }
+      }
+      
+      // Now get the user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError) {
+        console.error('Error getting user:', userError)
+        return { data: { user: null }, error: userError }
+      }
+      
+      return { data: { user }, error: null }
+    } catch (error) {
+      console.error('Token validation failed:', error)
+      return { data: { user: null }, error }
+    }
   }
 }
 
