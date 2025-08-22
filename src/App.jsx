@@ -29,8 +29,6 @@ function Sidebar() {
     logout()
   }
 
-
-
   return (
     <aside className="w-full lg:w-72 border-b lg:border-b-0 lg:border-r border-border bg-card p-4 flex flex-col justify-between min-h-auto lg:min-h-[calc(100vh-3.5rem)]">
       <div>
@@ -45,50 +43,21 @@ function Sidebar() {
           <SidebarItem to="/bulk-search" label="Bulk finder" />
           <SidebarItem to="/verify" label="Verify" />
         </nav>
-
-
-
-        {/* <SectionLabel>LEAD TOOLS</SectionLabel>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-gray-400">
-            <span className="w-4 h-4 rounded-full bg-gray-200" />
-            <span>Map Extractor <span className="ml-1 text-[10px] px-1 py-0.5 rounded bg-gray-100">BETA</span></span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-gray-400">
-            <span className="w-4 h-4 rounded-full bg-gray-200" />
-            <span>Browser Extension</span>
-          </div>
-        </div> */}
-
-        {/* <SectionLabel>AUTOMATION</SectionLabel>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-gray-400">
-            <span className="w-4 h-4 rounded-full bg-gray-200" />
-            <span>API</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-gray-400">
-            <span className="w-4 h-4 rounded-full bg-gray-200" />
-            <span>Integrations</span>
-          </div>
-        </div> */}
       </div>
 
-      <div className="space-y-3 px-2 mt-4 lg:mt-0">
-        <button className="w-full px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm">Add Credits</button>
-        {isAuthenticated ? (
-          <div className="space-y-2">
-            <div className="w-full px-3 py-2 rounded-md bg-muted text-muted-foreground text-sm text-center">
-              {user.name}
-            </div>
-            <button 
-              onClick={handleLogout}
-              className="w-full px-3 py-2 rounded-md border border-border hover:bg-accent hover:text-accent-foreground transition-colors text-sm"
-            >
-              Logout
-            </button>
+      {isAuthenticated && (
+        <div className="mt-6 pt-4 border-t border-border">
+          <div className="px-3 py-2 text-sm text-muted-foreground mb-2">
+            {user?.name || 'User'}
           </div>
-        ) : null}
-      </div>
+          <button 
+            onClick={handleLogout}
+            className="w-full px-3 py-2 text-sm text-left rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      )}
     </aside>
   )
 }
@@ -99,8 +68,6 @@ function Topbar() {
   const handleLogout = () => {
     logout()
   }
-
-
 
   return (
     <header className="h-14 border-b border-border px-4 flex items-center justify-between bg-card">
@@ -123,32 +90,68 @@ function Topbar() {
   )
 }
 
-function Layout() {
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Topbar />
-      <div className="flex flex-col lg:flex-row">
-        <Sidebar />
-        <main className="flex-1 p-4 lg:p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="bg-card border border-border rounded-lg shadow-sm p-6">
-              <Routes>
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/verify" element={<VerifyPage />} />
-                <Route path="/bulk-search" element={<BulkSearchPage />} />
+// Authentication Guard Component
+function AuthGuard({ children }) {
+  const { isAuthenticated, isLoading } = useAuth()
 
-                <Route path="/" element={<Navigate to="/search" replace />} />
-                <Route path="*" element={<div className="p-6 text-center">Not Found</div>} />
-              </Routes>
-            </div>
-          </div>
-        </main>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground">Authenticating...</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold mb-2">Authentication Required</h1>
+            <p className="text-muted-foreground">Please log in through mailsfinder.com to access the dashboard.</p>
+          </div>
+          <a 
+            href="https://mailsfinder.com/login" 
+            className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Go to Login
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  return children
 }
 
-
+function Layout() {
+  return (
+    <AuthGuard>
+      <div className="min-h-screen bg-background text-foreground">
+        <Topbar />
+        <div className="flex flex-col lg:flex-row">
+          <Sidebar />
+          <main className="flex-1 p-4 lg:p-6">
+            <div className="max-w-7xl mx-auto">
+              <div className="bg-card border border-border rounded-lg shadow-sm p-6">
+                <Routes>
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/verify" element={<VerifyPage />} />
+                  <Route path="/bulk-search" element={<BulkSearchPage />} />
+                  <Route path="/" element={<Navigate to="/search" replace />} />
+                  <Route path="*" element={<div className="p-6 text-center">Not Found</div>} />
+                </Routes>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </AuthGuard>
+  )
+}
 
 export default function App() {
   return (

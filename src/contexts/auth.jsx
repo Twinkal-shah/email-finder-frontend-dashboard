@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { authService, dbService } from '../services/supabase'
 
 const STORAGE_KEY = 'auth_user'
+const TOKEN_STORAGE_KEY = 'auth_tokens'
 
 const AuthContext = createContext(null)
 
@@ -12,20 +13,90 @@ function getUrlParams() {
     name: params.get('name') ? decodeURIComponent(params.get('name')) : null,
     email: params.get('email') ? decodeURIComponent(params.get('email')) : null,
     token: params.get('token') ? decodeURIComponent(params.get('token')) : null,
-    user_id: params.get('user_id') ? decodeURIComponent(params.get('user_id')) : null
+    access_token: params.get('access_token') ? decodeURIComponent(params.get('access_token')) : null,
+    refresh_token: params.get('refresh_token') ? decodeURIComponent(params.get('refresh_token')) : null,
+    user_id: params.get('user_id') ? decodeURIComponent(params.get('user_id')) : null,
+    expires_at: params.get('expires_at') ? decodeURIComponent(params.get('expires_at')) : null
   }
 }
 
+// Helper function to validate access token with Supabase
+async function validateAccessToken(accessToken) {
+  try {
+    // Set the session with the provided token
+    const { data: { user }, error } = await authService.getUser(accessToken)
+    if (error) {
+      console.error('Token validation error:', error)
+      return null
+    }
+    return user
+  } catch (error) {
+    console.error('Token validation failed:', error)
+    return null
+  }
+}
+
+// Helper function to store tokens securely
+function storeTokens(tokens) {
+  try {
+    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: tokens.expires_at,
+      stored_at: Date.now()
+    }))
+  } catch (error) {
+    console.error('Failed to store tokens:', error)
+  }
+}
+
+// Helper function to retrieve stored tokens
+function getStoredTokens() {
+  try {
+    const stored = localStorage.getItem(TOKEN_STORAGE_KEY)
+    if (!stored) return null
+    
+    const tokens = JSON.parse(stored)
+    
+    // Check if tokens are expired
+    if (tokens.expires_at && new Date(tokens.expires_at) <= new Date()) {
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
+      return null
+    }
+    
+    return tokens
+  } catch (error) {
+    console.error('Failed to retrieve tokens:', error)
+    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    return null
+  }
+}
+
+// Helper function to clean URL parameters
+function cleanUrlParams() {
+  const url = new URL(window.location)
+  const paramsToRemove = ['name', 'email', 'token', 'access_token', 'refresh_token', 'user_id', 'expires_at']
+  
+  paramsToRemove.forEach(param => url.searchParams.delete(param))
+  window.history.replaceState({}, '', url.toString())
+}
+
 // Helper function to listen for cross-domain messages
-function setupCrossDomainListener(setUser) {
+function setupCrossDomainListener(setUser, setTokens) {
   const handleMessage = (event) => {
     // Only accept messages from mailsfinder.com domain
     if (event.origin !== 'https://mailsfinder.com' && event.origin !== 'http://mailsfinder.com') {
       return
     }
     
-    if (event.data && event.data.type === 'USER_AUTH' && event.data.user) {
-      setUser(event.data.user)
+    if (event.data && event.data.type === 'USER_AUTH') {
+      if (event.data.user) {
+        setUser(event.data.user)
+      }
+      if (event.data.tokens) {
+        storeTokens(event.data.tokens)
+        setTokens(event.data.tokens)
+      }
     }
   }
   
@@ -35,7 +106,9 @@ function setupCrossDomainListener(setUser) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [tokens, setTokens] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [authError, setAuthError] = useState(null)
 
   // Initialize authentication on mount
   useEffect(() => {
@@ -43,29 +116,43 @@ export function AuthProvider({ children }) {
     
     const initializeAuth = async () => {
       try {
-        // First, check URL parameters for user data (fallback for existing flow)
+        setAuthError(null)
+        
+        // 1. Extract URL parameters when the page loads
         const urlParams = getUrlParams()
-        if (urlParams.name || urlParams.email) {
-          const userData = {
-            name: urlParams.name || 'User',
-            email: urlParams.email || '',
-            token: urlParams.token || '',
-            user_id: urlParams.user_id || ''
-          }
-          setUser(userData)
+        
+        if (urlParams.access_token || urlParams.token) {
+          // 2. Validate the access token with Supabase
+          const tokenToValidate = urlParams.access_token || urlParams.token
+          const validatedUser = await validateAccessToken(tokenToValidate)
           
-          // Clean URL parameters after extracting user data
-          const url = new URL(window.location)
-          url.searchParams.delete('name')
-          url.searchParams.delete('email')
-          url.searchParams.delete('token')
-          url.searchParams.delete('user_id')
-          window.history.replaceState({}, '', url.toString())
-          
-          // If we have email from URL, try to fetch full user data from Supabase
-          if (urlParams.email) {
+          if (validatedUser) {
+            // 3. Initialize the user session in your dashboard
+            const userData = {
+              id: validatedUser.id,
+              name: urlParams.name || validatedUser.user_metadata?.name || validatedUser.email?.split('@')[0] || 'User',
+              email: urlParams.email || validatedUser.email,
+              user_id: urlParams.user_id || validatedUser.id
+            }
+            setUser(userData)
+            
+            // 4. Store tokens for API calls
+            if (urlParams.access_token) {
+              const tokenData = {
+                access_token: urlParams.access_token,
+                refresh_token: urlParams.refresh_token,
+                expires_at: urlParams.expires_at
+              }
+              storeTokens(tokenData)
+              setTokens(tokenData)
+            }
+            
+            // Clean URL parameters after extracting user data
+            cleanUrlParams()
+            
+            // Try to fetch additional user data from database
             try {
-              const dbUser = await dbService.getUserByEmail(urlParams.email)
+              const dbUser = await dbService.getUserByEmail(userData.email)
               if (dbUser) {
                 setUser({
                   ...userData,
@@ -76,12 +163,25 @@ export function AuthProvider({ children }) {
             } catch (error) {
               console.error('Error fetching user from database:', error)
             }
+          } else {
+            // Token validation failed
+            setAuthError('Invalid or expired authentication token')
+            cleanUrlParams()
           }
+        } else if (urlParams.name || urlParams.email) {
+          // Fallback for legacy URL parameter flow
+          const userData = {
+            name: urlParams.name || 'User',
+            email: urlParams.email || '',
+            user_id: urlParams.user_id || ''
+          }
+          setUser(userData)
+          cleanUrlParams()
         } else {
           // Check for existing Supabase session
+          try {
             const currentUser = await authService.getCurrentUser()
             if (currentUser) {
-              // Fetch user profile from Supabase Auth
               const userProfile = await authService.getUserProfile(currentUser.id)
               if (userProfile) {
                 setUser({
@@ -94,29 +194,50 @@ export function AuthProvider({ children }) {
                   ...userProfile
                 })
               } else {
-                // Fallback to auth user data
                 setUser({
                   id: currentUser.id,
                   email: currentUser.email,
                   name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User'
                 })
               }
-          } else {
-            // If no Supabase session, try localStorage as fallback
-            const raw = localStorage.getItem(STORAGE_KEY)
-            if (raw) {
-              const parsed = JSON.parse(raw)
-              if (parsed && typeof parsed === 'object') {
-                setUser(parsed)
+            } else {
+              // Check for stored tokens
+              const storedTokens = getStoredTokens()
+              if (storedTokens) {
+                const validatedUser = await validateAccessToken(storedTokens.access_token)
+                if (validatedUser) {
+                  setUser({
+                    id: validatedUser.id,
+                    email: validatedUser.email,
+                    name: validatedUser.user_metadata?.name || validatedUser.email?.split('@')[0] || 'User'
+                  })
+                  setTokens(storedTokens)
+                } else {
+                  // Stored tokens are invalid
+                  localStorage.removeItem(TOKEN_STORAGE_KEY)
+                }
+              } else {
+                // Check localStorage as final fallback
+                const raw = localStorage.getItem(STORAGE_KEY)
+                if (raw) {
+                  const parsed = JSON.parse(raw)
+                  if (parsed && typeof parsed === 'object') {
+                    setUser(parsed)
+                  }
+                }
+                
+                // Set up cross-domain message listener
+                cleanup = setupCrossDomainListener(setUser, setTokens)
               }
             }
-            
-            // Set up cross-domain message listener
-            cleanup = setupCrossDomainListener(setUser)
+          } catch (error) {
+            console.error('Error checking existing session:', error)
+            setAuthError('Failed to verify existing session')
           }
         }
       } catch (error) {
         console.error('Error initializing auth:', error)
+        setAuthError('Authentication initialization failed')
       }
       
       setIsLoading(false)
@@ -125,30 +246,33 @@ export function AuthProvider({ children }) {
     initializeAuth()
     
     // Listen for auth state changes
-     const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const userProfile = await authService.getUserProfile(session.user.id)
-          if (userProfile) {
-            setUser({
-              id: session.user.id,
-              email: userProfile.email || session.user.email,
-              name: userProfile.user_metadata?.display_name || userProfile.user_metadata?.name || userProfile.email?.split('@')[0] || 'User',
-              phone: userProfile.phone,
-              created_at: userProfile.created_at,
-              last_sign_in_at: userProfile.last_sign_in_at,
-              ...userProfile
-            })
-          } else {
-            setUser({
-              id: session.user.id,
-              email: session.user.email,
-              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User'
-            })
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
+    const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const userProfile = await authService.getUserProfile(session.user.id)
+        if (userProfile) {
+          setUser({
+            id: session.user.id,
+            email: userProfile.email || session.user.email,
+            name: userProfile.user_metadata?.display_name || userProfile.user_metadata?.name || userProfile.email?.split('@')[0] || 'User',
+            phone: userProfile.phone,
+            created_at: userProfile.created_at,
+            last_sign_in_at: userProfile.last_sign_in_at,
+            ...userProfile
+          })
+        } else {
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User'
+          })
         }
-      })
+        setAuthError(null)
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setTokens(null)
+        localStorage.removeItem(TOKEN_STORAGE_KEY)
+      }
+    })
     
     return () => {
       subscription?.unsubscribe()
@@ -167,33 +291,42 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({
     user,
+    tokens,
     isLoading,
+    authError,
     isAuthenticated: !!user,
     login: async (userData) => {
       if (userData.email && userData.password) {
-        // Sign in with Supabase
         try {
           await authService.signIn(userData.email, userData.password)
-          // User state will be updated via onAuthStateChange
+          setAuthError(null)
         } catch (error) {
           console.error('Login error:', error)
+          setAuthError(error.message || 'Login failed')
           throw error
         }
       } else {
-        // Fallback for direct user data setting
         setUser(userData)
+        setAuthError(null)
       }
     },
     logout: async () => {
       try {
         await authService.signOut()
         setUser(null)
+        setTokens(null)
+        setAuthError(null)
+        localStorage.removeItem(TOKEN_STORAGE_KEY)
       } catch (error) {
         console.error('Logout error:', error)
         setUser(null)
+        setTokens(null)
+        setAuthError(null)
+        localStorage.removeItem(TOKEN_STORAGE_KEY)
       }
     },
-  }), [user, isLoading])
+    clearError: () => setAuthError(null)
+  }), [user, tokens, isLoading, authError])
 
   return (
     <AuthContext.Provider value={value}>
