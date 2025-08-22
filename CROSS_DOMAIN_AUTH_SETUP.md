@@ -19,24 +19,54 @@ Copy the `public/auth-bridge.html` file to your `mailsfinder.com` server and mak
 https://mailsfinder.com/auth-bridge.html
 ```
 
+**Important**: The auth-bridge.html file is already configured with your Supabase credentials:
+- Supabase URL: `https://your-project.supabase.co`
+- Anonymous Key: Your project's anonymous key
+- Make sure these match your production Supabase project settings
+
 ### 2. Modify the auth-bridge.html for your authentication system
 
-The current `auth-bridge.html` file contains example code that checks for authentication in localStorage. You need to modify it to work with your actual authentication system on `mailsfinder.com`.
+The provided `auth-bridge.html` is already configured to work with Supabase authentication. It includes:
 
-Replace these lines in the auth-bridge.html:
-```javascript
-// Example: Check for authentication cookies or localStorage
-const authToken = localStorage.getItem('auth_token');
-const userEmail = localStorage.getItem('user_email');
-const userName = localStorage.getItem('user_name');
-```
+- **Supabase Client**: Configured with your project URL and anonymous key
+- **Session Management**: Automatically retrieves the current user session from Supabase
+- **User Data Fetching**: Gets additional user profile data from the `profiles` table
 
-With your actual authentication check logic, for example:
 ```javascript
-// Check your actual authentication system
-const authToken = getCookieValue('auth_token'); // or however you store auth tokens
-const userEmail = getCurrentUserEmail(); // your function to get user email
-const userName = getCurrentUserName(); // your function to get user name
+// Supabase integration (already implemented)
+async function getCurrentAuthenticatedUser() {
+  try {
+    // Get current session from Supabase
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError || !session) {
+      return null
+    }
+    
+    // Get additional user data from profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
+    
+    return {
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: profile?.name || session.user.user_metadata?.name || session.user.email,
+        ...profile
+      },
+      tokens: {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      }
+    }
+  } catch (error) {
+    console.error('Error getting authenticated user:', error)
+    return null
+  }
+}
 ```
 
 ### 3. Include the auth bridge in your main mailsfinder.com pages
@@ -71,7 +101,31 @@ Or include the auth-bridge script directly in your main pages.
 
 ## Troubleshooting
 
-1. **Check browser console**: Look for messages about cross-domain communication
-2. **Verify domains**: Make sure the auth bridge is hosted on the exact domain `mailsfinder.com`
-3. **Check authentication logic**: Ensure the auth bridge correctly detects when users are logged in
-4. **Test in incognito**: Try the flow in an incognito window to ensure it works for new sessions
+### 1. Check Browser Console
+- Open browser developer tools on both domains
+- Look for CORS errors or message passing failures
+- Verify that messages are being sent and received
+- Check for Supabase authentication errors
+
+### 2. Verify Domain Configuration
+- Ensure auth-bridge.html is accessible at the correct URL
+- Check that iframe can load the auth-bridge page
+- Verify domain origins in the JavaScript code match your setup
+- Confirm Supabase URL and anonymous key are correct
+
+### 3. Test Authentication Flow
+- Log in on mailsfinder.com using Supabase authentication
+- Navigate to app.mailsfinder.com
+- Check if user session exists in Supabase
+- Verify user profile data is available in the `profiles` table
+- Ensure tokens are valid and not expired
+
+### 4. Supabase-Specific Debugging
+- Check Supabase dashboard for active sessions
+- Verify Row Level Security (RLS) policies on `profiles` table
+- Ensure the anonymous key has proper permissions
+- Test Supabase connection directly in browser console:
+  ```javascript
+  // Test in browser console on mailsfinder.com
+  supabase.auth.getSession().then(console.log)
+  ```

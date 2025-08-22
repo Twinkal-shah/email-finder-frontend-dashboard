@@ -174,6 +174,8 @@ function cleanUrlParams() {
 
 // Helper function to listen for cross-domain messages
 function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout) {
+  let authIframe = null
+  
   const handleMessage = (event) => {
     // Only accept messages from mailsfinder.com domain
     if (event.origin !== 'https://mailsfinder.com' && event.origin !== 'http://mailsfinder.com') {
@@ -200,36 +202,78 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
       if (setIsLoading) {
         setIsLoading(false)
       }
+      
+      // Clean up iframe after receiving response
+      if (authIframe && authIframe.parentNode) {
+        authIframe.parentNode.removeChild(authIframe)
+        authIframe = null
+      }
     }
   }
   
   window.addEventListener('message', handleMessage)
   
-  // Actively request authentication data from parent domain
-  const requestAuthData = () => {
+  // Create iframe to communicate with auth bridge
+  const createAuthIframe = () => {
     try {
-      // Try to communicate with mailsfinder.com if it's the parent window
-      if (window.parent && window.parent !== window) {
-        console.log('Requesting auth data from parent window')
-        window.parent.postMessage({ type: 'REQUEST_AUTH_DATA' }, 'https://mailsfinder.com')
+      // Remove existing iframe if any
+      if (authIframe && authIframe.parentNode) {
+        authIframe.parentNode.removeChild(authIframe)
       }
       
-      // Also try to communicate with mailsfinder.com via iframe or popup if available
-      const mailsfinderOrigin = 'https://mailsfinder.com'
-      window.postMessage({ type: 'REQUEST_AUTH_DATA' }, mailsfinderOrigin)
+      // Create new iframe
+      authIframe = document.createElement('iframe')
+      authIframe.src = 'https://mailsfinder.com/auth-bridge.html'
+      authIframe.style.display = 'none'
+      authIframe.style.width = '0'
+      authIframe.style.height = '0'
+      authIframe.style.border = 'none'
+      
+      // Add iframe to document
+      document.body.appendChild(authIframe)
+      
+      // Send auth request when iframe loads
+      authIframe.onload = () => {
+        console.log('Auth bridge iframe loaded, requesting auth data')
+        try {
+          authIframe.contentWindow.postMessage(
+            { type: 'REQUEST_AUTH_DATA' }, 
+            'https://mailsfinder.com'
+          )
+        } catch (error) {
+          console.log('Error sending message to auth bridge:', error)
+        }
+      }
+      
+      // Handle iframe load errors
+      authIframe.onerror = () => {
+        console.log('Failed to load auth bridge iframe')
+        if (setIsLoading) {
+          setIsLoading(false)
+        }
+      }
       
     } catch (error) {
-      console.log('Could not request auth data from parent:', error)
+      console.log('Could not create auth iframe:', error)
+      if (setIsLoading) {
+        setIsLoading(false)
+      }
     }
   }
   
-  // Request auth data immediately and after a short delay
-  requestAuthData()
-  const timeoutId = setTimeout(requestAuthData, 1000)
+  // Create iframe immediately and after a short delay as fallback
+  createAuthIframe()
+  const timeoutId = setTimeout(createAuthIframe, 1000)
   
   return () => {
     window.removeEventListener('message', handleMessage)
     clearTimeout(timeoutId)
+    
+    // Clean up iframe
+    if (authIframe && authIframe.parentNode) {
+      authIframe.parentNode.removeChild(authIframe)
+      authIframe = null
+    }
   }
 }
 
