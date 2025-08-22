@@ -173,7 +173,7 @@ function cleanUrlParams() {
 }
 
 // Helper function to listen for cross-domain messages
-function setupCrossDomainListener(setUser, setTokens) {
+function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout) {
   const handleMessage = (event) => {
     // Only accept messages from mailsfinder.com domain
     if (event.origin !== 'https://mailsfinder.com' && event.origin !== 'http://mailsfinder.com') {
@@ -181,6 +181,13 @@ function setupCrossDomainListener(setUser, setTokens) {
     }
     
     if (event.data && event.data.type === 'USER_AUTH') {
+      console.log('Received cross-domain auth data:', event.data)
+      
+      // Clear the authentication timeout since we received a response
+      if (clearAuthTimeout) {
+        clearAuthTimeout()
+      }
+      
       if (event.data.user) {
         setUser(event.data.user)
       }
@@ -188,11 +195,42 @@ function setupCrossDomainListener(setUser, setTokens) {
         storeTokens(event.data.tokens)
         setTokens(event.data.tokens)
       }
+      
+      // Stop loading since we received authentication data (or lack thereof)
+      if (setIsLoading) {
+        setIsLoading(false)
+      }
     }
   }
   
   window.addEventListener('message', handleMessage)
-  return () => window.removeEventListener('message', handleMessage)
+  
+  // Actively request authentication data from parent domain
+  const requestAuthData = () => {
+    try {
+      // Try to communicate with mailsfinder.com if it's the parent window
+      if (window.parent && window.parent !== window) {
+        console.log('Requesting auth data from parent window')
+        window.parent.postMessage({ type: 'REQUEST_AUTH_DATA' }, 'https://mailsfinder.com')
+      }
+      
+      // Also try to communicate with mailsfinder.com via iframe or popup if available
+      const mailsfinderOrigin = 'https://mailsfinder.com'
+      window.postMessage({ type: 'REQUEST_AUTH_DATA' }, mailsfinderOrigin)
+      
+    } catch (error) {
+      console.log('Could not request auth data from parent:', error)
+    }
+  }
+  
+  // Request auth data immediately and after a short delay
+  requestAuthData()
+  const timeoutId = setTimeout(requestAuthData, 1000)
+  
+  return () => {
+    window.removeEventListener('message', handleMessage)
+    clearTimeout(timeoutId)
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -204,6 +242,7 @@ export function AuthProvider({ children }) {
   // Initialize authentication on mount
   useEffect(() => {
     let cleanup = null
+    let authTimeout = null
     
     const initializeAuth = async () => {
       try {
@@ -274,6 +313,17 @@ export function AuthProvider({ children }) {
           setUser(userData)
           cleanUrlParams()
         } else {
+          // Create function to clear auth timeout
+          const clearAuthTimeout = () => {
+            if (authTimeout) {
+              clearTimeout(authTimeout)
+              authTimeout = null
+            }
+          }
+          
+          // Set up cross-domain message listener early to request auth data
+          cleanup = setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout)
+          
           // Check for existing Supabase session
           try {
             const currentUser = await authService.getCurrentUser()
@@ -322,8 +372,14 @@ export function AuthProvider({ children }) {
                   }
                 }
                 
-                // Set up cross-domain message listener
-                cleanup = setupCrossDomainListener(setUser, setTokens)
+                // If no local authentication found, wait for cross-domain response
+                // Set a timeout to stop loading if no response is received
+                authTimeout = setTimeout(() => {
+                  console.log('Cross-domain authentication timeout - no response received')
+                  setIsLoading(false)
+                }, 3000) // Wait 3 seconds for cross-domain auth
+                
+                return // Don't set isLoading to false yet, wait for cross-domain response or timeout
               }
             }
           } catch (error) {
@@ -373,6 +429,9 @@ export function AuthProvider({ children }) {
     return () => {
       subscription?.unsubscribe()
       cleanup?.()
+      if (authTimeout) {
+        clearTimeout(authTimeout)
+      }
     }
   }, [])
 
