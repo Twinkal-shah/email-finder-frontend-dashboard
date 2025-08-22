@@ -13,6 +13,19 @@ function getUrlParams() {
     console.log('Current URL:', window.location.href)
     console.log('Search params:', window.location.search)
     
+    // Temporarily disable URL parsing to isolate the error
+    if (!window.location.search) {
+      return {
+        name: null,
+        email: null,
+        token: null,
+        access_token: null,
+        refresh_token: null,
+        user_id: null,
+        expires_at: null
+      }
+    }
+    
     // Use window.location.search directly instead of constructing a new URL
     const params = new URLSearchParams(window.location.search)
     return {

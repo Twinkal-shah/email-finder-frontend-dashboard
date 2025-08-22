@@ -141,12 +141,15 @@ export const authService = {
     return supabase.auth.onAuthStateChange(callback)
   },
 
-  // Get session from URL (for redirects)
+  // Get session from URL (for redirects) - DISABLED to prevent URL parsing errors
   async getSessionFromUrl() {
     try {
-      const { data, error } = await supabase.auth.getSessionFromUrl()
-      if (error) throw error
-      return data
+      // Temporarily disabled to prevent TypeError: Failed to construct 'URL': Invalid URL
+      console.log('getSessionFromUrl called but disabled to prevent URL parsing errors')
+      return null
+      // const { data, error } = await supabase.auth.getSessionFromUrl()
+      // if (error) throw error
+      // return data
     } catch (error) {
       console.error('Error getting session from URL:', error)
       return null
