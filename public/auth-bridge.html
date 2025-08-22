@@ -4,47 +4,119 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authentication Bridge</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
     <script>
         // This page should be hosted on mailsfinder.com to handle cross-domain auth requests
         
+        // Supabase configuration - Replace with your mailsfinder.com Supabase project details
+        const SUPABASE_URL = 'https://wbcfsffssphgvpnbrvve.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndiY2ZzZmZzc3BoZ3ZwbmJydnZlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTE3Mzc1NCwiZXhwIjoyMDcwNzQ5NzU0fQ.dnXUMNFUw0amsJsLL8PHMjHRpda8w07KbwDIpo3O2vE';
+        
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: true
+            }
+        });
+        
+        // Function to get current authenticated user from Supabase
+        async function getCurrentAuthenticatedUser() {
+            try {
+                // Get the current session
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError) {
+                    console.error('Error getting session:', sessionError);
+                    return null;
+                }
+                
+                if (!session || !session.user) {
+                    console.log('No active session found');
+                    return null;
+                }
+                
+                const user = session.user;
+                console.log('Found authenticated user:', user.email);
+                
+                // Try to get additional user profile data from the database
+                let userProfile = null;
+                try {
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', user.id)
+                        .single();
+                    
+                    if (!profileError && profile) {
+                        userProfile = profile;
+                    }
+                } catch (profileErr) {
+                    console.log('No profile found in profiles table, using auth user data');
+                }
+                
+                // Prepare user data
+                const userData = {
+                    id: user.id,
+                    email: user.email,
+                    name: userProfile?.name || 
+                           userProfile?.display_name || 
+                           user.user_metadata?.name || 
+                           user.user_metadata?.display_name || 
+                           user.email?.split('@')[0] || 
+                           'User',
+                    phone: userProfile?.phone || user.phone,
+                    created_at: user.created_at,
+                    last_sign_in_at: user.last_sign_in_at,
+                    ...userProfile
+                };
+                
+                // Prepare token data
+                const tokenData = {
+                    access_token: session.access_token,
+                    refresh_token: session.refresh_token,
+                    expires_at: session.expires_at
+                };
+                
+                return {
+                    user: userData,
+                    tokens: tokenData
+                };
+                
+            } catch (error) {
+                console.error('Error checking authentication:', error);
+                return null;
+            }
+        }
+        
         // Listen for authentication requests from app.mailsfinder.com
-        window.addEventListener('message', function(event) {
-            // Only respond to requests from app.mailsfinder.com
-            if (event.origin !== 'https://app.mailsfinder.com' && event.origin !== 'http://localhost:5173') {
+        window.addEventListener('message', async function(event) {
+            // Only respond to requests from app.mailsfinder.com and localhost (for development)
+            if (event.origin !== 'https://app.mailsfinder.com' && 
+                event.origin !== 'http://localhost:5173' &&
+                event.origin !== 'https://localhost:5173') {
+                console.log('Ignoring message from unauthorized origin:', event.origin);
                 return;
             }
             
             if (event.data && event.data.type === 'REQUEST_AUTH_DATA') {
                 console.log('Received auth data request from:', event.origin);
                 
-                // Check if user is logged in (this would depend on your mailsfinder.com implementation)
-                // You would need to implement this based on how authentication works on mailsfinder.com
-                
                 try {
-                    // Example: Check for authentication cookies or localStorage
-                    const authToken = localStorage.getItem('auth_token');
-                    const userEmail = localStorage.getItem('user_email');
-                    const userName = localStorage.getItem('user_name');
+                    const authResult = await getCurrentAuthenticatedUser();
                     
-                    if (authToken && userEmail) {
+                    if (authResult && authResult.user) {
                         // Send authentication data back to app.mailsfinder.com
                         const authData = {
                             type: 'USER_AUTH',
-                            user: {
-                                email: userEmail,
-                                name: userName || userEmail.split('@')[0],
-                                id: localStorage.getItem('user_id') || 'temp_id'
-                            },
-                            tokens: {
-                                access_token: authToken,
-                                refresh_token: localStorage.getItem('refresh_token'),
-                                expires_at: localStorage.getItem('token_expires_at')
-                            }
+                            user: authResult.user,
+                            tokens: authResult.tokens
                         };
                         
-                        console.log('Sending auth data to:', event.origin);
+                        console.log('Sending auth data to:', event.origin, authData.user.email);
                         event.source.postMessage(authData, event.origin);
                     } else {
                         // No authentication found
@@ -61,15 +133,32 @@
                         type: 'USER_AUTH',
                         user: null,
                         tokens: null,
-                        error: 'Authentication check failed'
+                        error: 'Authentication check failed: ' + error.message
                     }, event.origin);
                 }
             }
         });
         
         // Also check for authentication on page load and notify any child frames
-        window.addEventListener('load', function() {
+        window.addEventListener('load', async function() {
             console.log('Auth bridge loaded on mailsfinder.com');
+            
+            // Optionally, you can check authentication status on load
+            try {
+                const authResult = await getCurrentAuthenticatedUser();
+                if (authResult && authResult.user) {
+                    console.log('User is authenticated:', authResult.user.email);
+                } else {
+                    console.log('No user authenticated on page load');
+                }
+            } catch (error) {
+                console.error('Error checking auth on load:', error);
+            }
+        });
+        
+        // Listen for Supabase auth state changes
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Auth state changed:', event, session?.user?.email || 'no user');
         });
     </script>
 </body>
