@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { authService, dbService } from '../services/supabase'
+import { getSessionFromCookies, clearSessionCookies, isAuthenticatedFromCookies } from '../utils/cookies'
 
 const STORAGE_KEY = 'auth_user'
 const TOKEN_STORAGE_KEY = 'auth_tokens'
@@ -177,8 +178,10 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
   let authIframe = null
   
   const handleMessage = (event) => {
-    // Only accept messages from mailsfinder.com domain
-    if (event.origin !== 'https://mailsfinder.com' && event.origin !== 'http://mailsfinder.com') {
+    // Only accept messages from mailsfinder.com domain (with or without www)
+    if (event.origin !== 'https://www.mailsfinder.com' && 
+        event.origin !== 'https://mailsfinder.com' && 
+        event.origin !== 'http://mailsfinder.com') {
       return
     }
     
@@ -223,7 +226,7 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
       
       // Create new iframe
       authIframe = document.createElement('iframe')
-      authIframe.src = 'https://mailsfinder.com/auth-bridge.html'
+      authIframe.src = 'https://www.mailsfinder.com/auth-bridge.html'
       authIframe.style.display = 'none'
       authIframe.style.width = '0'
       authIframe.style.height = '0'
@@ -238,7 +241,7 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
         try {
           authIframe.contentWindow.postMessage(
             { type: 'REQUEST_AUTH_DATA' }, 
-            'https://mailsfinder.com'
+            'https://www.mailsfinder.com'
           )
         } catch (error) {
           console.log('Error sending message to auth bridge:', error)
@@ -365,7 +368,39 @@ export function AuthProvider({ children }) {
             }
           }
           
-          // Set up cross-domain message listener early to request auth data
+          // First, check for authentication in cross-domain cookies
+          console.log('Checking for authentication in cookies...')
+          const cookieSession = getSessionFromCookies()
+          
+          if (cookieSession && cookieSession.access_token) {
+            console.log('Found session in cookies, validating...')
+            try {
+              const validatedUser = await validateAccessToken(cookieSession.access_token, cookieSession.refresh_token)
+              if (validatedUser) {
+                console.log('Cookie session validated successfully')
+                setUser(cookieSession.user || {
+                  id: validatedUser.id,
+                  email: validatedUser.email,
+                  name: validatedUser.user_metadata?.name || validatedUser.email?.split('@')[0] || 'User'
+                })
+                setTokens({
+                  access_token: cookieSession.access_token,
+                  refresh_token: cookieSession.refresh_token,
+                  expires_at: cookieSession.expires_at
+                })
+                setIsLoading(false)
+                return // Successfully authenticated via cookies
+              } else {
+                console.log('Cookie session validation failed, clearing cookies')
+                clearSessionCookies()
+              }
+            } catch (error) {
+              console.error('Error validating cookie session:', error)
+              clearSessionCookies()
+            }
+          }
+          
+          // Set up cross-domain message listener as fallback
           cleanup = setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout)
           
           // Check for existing Supabase session
@@ -467,6 +502,7 @@ export function AuthProvider({ children }) {
         setUser(null)
         setTokens(null)
         localStorage.removeItem(TOKEN_STORAGE_KEY)
+        clearSessionCookies() // Clear cross-domain cookies on sign out
       }
     })
     
@@ -516,12 +552,14 @@ export function AuthProvider({ children }) {
         setTokens(null)
         setAuthError(null)
         localStorage.removeItem(TOKEN_STORAGE_KEY)
+        clearSessionCookies() // Clear cross-domain cookies on logout
       } catch (error) {
         console.error('Logout error:', error)
         setUser(null)
         setTokens(null)
         setAuthError(null)
         localStorage.removeItem(TOKEN_STORAGE_KEY)
+        clearSessionCookies() // Clear cross-domain cookies even on error
       }
     },
     clearError: () => setAuthError(null)

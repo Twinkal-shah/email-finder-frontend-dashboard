@@ -38,12 +38,12 @@ window.URL = function(url, base) {
   }
 }
 
-// Create Supabase client with disabled URL detection
+// Create Supabase client with cookie-based session support
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false
+    autoRefreshToken: true,  // Enable auto-refresh for better session management
+    persistSession: true,    // Enable session persistence for cookie support
+    detectSessionInUrl: false // Keep URL detection disabled for dashboard
   }
 })
 

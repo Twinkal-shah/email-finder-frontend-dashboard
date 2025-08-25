@@ -23,6 +23,76 @@
             }
         });
         
+        // Cookie utilities for cross-subdomain authentication
+        function setCrossDomainCookie(name, value, days = 7, domain = '.mailsfinder.com') {
+            try {
+                const expires = new Date();
+                expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+                
+                const cookieString = `${name}=${encodeURIComponent(value)}; expires=${expires.toUTCString()}; domain=${domain}; path=/; SameSite=None; Secure`;
+                document.cookie = cookieString;
+                console.log(`Set cross-domain cookie: ${name}`);
+                return true;
+            } catch (error) {
+                console.error('Error setting cross-domain cookie:', error);
+                return false;
+            }
+        }
+        
+        function getCookie(name) {
+            try {
+                const nameEQ = name + '=';
+                const cookies = document.cookie.split(';');
+                
+                for (let i = 0; i < cookies.length; i++) {
+                    let cookie = cookies[i];
+                    while (cookie.charAt(0) === ' ') {
+                        cookie = cookie.substring(1, cookie.length);
+                    }
+                    if (cookie.indexOf(nameEQ) === 0) {
+                        return decodeURIComponent(cookie.substring(nameEQ.length, cookie.length));
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting cookie:', error);
+                return null;
+            }
+        }
+        
+        function storeSessionInCookies(session, user) {
+            try {
+                if (!session || !session.access_token) {
+                    console.warn('No valid session to store in cookies');
+                    return false;
+                }
+
+                // Store access token (expires in 1 hour by default)
+                setCrossDomainCookie('supabase_access_token', session.access_token, 1/24);
+                
+                // Store refresh token (expires in 7 days)
+                if (session.refresh_token) {
+                    setCrossDomainCookie('supabase_refresh_token', session.refresh_token, 7);
+                }
+                
+                // Store user data (expires in 7 days)
+                if (user) {
+                    setCrossDomainCookie('supabase_user_data', JSON.stringify(user), 7);
+                }
+                
+                // Store session expiration time
+                if (session.expires_at) {
+                    setCrossDomainCookie('supabase_expires_at', session.expires_at.toString(), 7);
+                }
+                
+                console.log('Session data stored in cross-domain cookies');
+                return true;
+            } catch (error) {
+                console.error('Error storing session in cookies:', error);
+                return false;
+            }
+        }
+        
         // Function to get current authenticated user from Supabase
         async function getCurrentAuthenticatedUser() {
             try {
@@ -81,6 +151,9 @@
                     expires_at: session.expires_at
                 };
                 
+                // Store session data in cross-domain cookies
+                storeSessionInCookies(session, userData);
+                
                 return {
                     user: userData,
                     tokens: tokenData
@@ -96,6 +169,7 @@
         window.addEventListener('message', async function(event) {
             // Only respond to requests from app.mailsfinder.com and localhost (for development)
             if (event.origin !== 'https://app.mailsfinder.com' && 
+                event.origin !== 'https://www.mailsfinder.com' &&
                 event.origin !== 'http://localhost:5173' &&
                 event.origin !== 'https://localhost:5173') {
                 console.log('Ignoring message from unauthorized origin:', event.origin);
@@ -157,8 +231,52 @@
         });
         
         // Listen for Supabase auth state changes
-        supabase.auth.onAuthStateChange((event, session) => {
+        supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('Auth state changed:', event, session?.user?.email || 'no user');
+            
+            if (event === 'SIGNED_IN' && session) {
+                console.log('User signed in, storing session in cookies');
+                
+                // Get user profile data
+                let userProfile = null;
+                try {
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+                    
+                    if (!profileError && profile) {
+                        userProfile = profile;
+                    }
+                } catch (profileErr) {
+                    console.log('No profile found in profiles table, using auth user data');
+                }
+                
+                // Prepare user data
+                const userData = {
+                    id: session.user.id,
+                    email: session.user.email,
+                    name: userProfile?.name || 
+                           userProfile?.display_name || 
+                           session.user.user_metadata?.name || 
+                           'User',
+                    phone: userProfile?.phone || session.user.phone,
+                    created_at: session.user.created_at,
+                    last_sign_in_at: session.user.last_sign_in_at,
+                    ...userProfile
+                };
+                
+                // Store session data in cross-domain cookies
+                storeSessionInCookies(session, userData);
+            } else if (event === 'SIGNED_OUT') {
+                console.log('User signed out, clearing session cookies');
+                // Clear cookies when user signs out
+                setCrossDomainCookie('supabase_access_token', '', -1);
+                setCrossDomainCookie('supabase_refresh_token', '', -1);
+                setCrossDomainCookie('supabase_user_data', '', -1);
+                setCrossDomainCookie('supabase_expires_at', '', -1);
+            }
         });
     </script>
 </body>
