@@ -1,4 +1,4 @@
-import { creditMiddleware, deductCreditsMiddleware } from '../services/creditManager.js'
+import { creditMiddleware, deductCreditsMiddleware } from '../utils/creditUtils.jsx'
 import { getUserProfile } from './user.js'
 
 /**
