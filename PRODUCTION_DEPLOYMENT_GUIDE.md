@@ -61,6 +61,26 @@ If using other hosting platforms, ensure:
 - **Missing env vars**: Check Vercel environment variables
 - **CORS errors**: Verify Supabase project settings
 - **Network errors**: Check API endpoint accessibility
+- **JavaScript Module MIME Type Issues**: "Failed to load module script: Expected a JavaScript module script but the server responded with a MIME type of 'text/html'"
+
+### MIME Type Fix:
+If experiencing module loading issues, add proper headers configuration in `vercel.json`:
+```json
+"headers": [
+  {
+    "source": "/assets/(.*).js",
+    "headers": [
+      { "key": "Content-Type", "value": "application/javascript" }
+    ]
+  },
+  {
+    "source": "/assets/(.*).css",
+    "headers": [
+      { "key": "Content-Type", "value": "text/css" }
+    ]
+  }
+]
+```
 
 ## Files Modified:
 - `.env.production` - Added Supabase environment variables
