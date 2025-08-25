@@ -3,8 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import SearchPage from './pages/SearchPage.jsx'
 import VerifyPage from './pages/VerifyPage.jsx'
 import BulkSearchPage from './pages/BulkSearchPage.jsx'
+import BillingPage from './pages/BillingPage.jsx'
 import { FindResultsProvider } from './contexts/findResults.jsx'
 import { AuthProvider, useAuth } from './contexts/auth.jsx'
+import { useCredits } from './services/creditManager.jsx'
+import { useState, useEffect } from 'react'
 
 const queryClient = new QueryClient()
 
@@ -43,6 +46,11 @@ function Sidebar() {
           <SidebarItem to="/bulk-search" label="Bulk finder" />
           <SidebarItem to="/verify" label="Verify" />
         </nav>
+
+        <SectionLabel>ACCOUNT</SectionLabel>
+        <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible">
+          <SidebarItem to="/billing" label="Credits & Billing" />
+        </nav>
       </div>
 
       {isAuthenticated && (
@@ -64,16 +72,37 @@ function Sidebar() {
 
 function Topbar() {
   const { user, isAuthenticated, logout } = useAuth()
-
+  const [creditBalance, setCreditBalance] = useState({ find: 0, verify: 0, plan: 'free' })
+  
   const handleLogout = () => {
     logout()
   }
+
+  // Load credit balance for authenticated users
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Mock credit data for demo - in real app this would come from useCredits hook
+      setCreditBalance({ find: 25, verify: 25, plan: 'free' })
+    }
+  }, [isAuthenticated, user])
 
   return (
     <header className="h-14 border-b border-border px-4 flex items-center justify-between bg-card">
       <div className="font-semibold text-foreground">Email Finder Dashboard</div>
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <span className="hidden sm:inline">Credits: 0</span>
+        {isAuthenticated && (
+          <div className="hidden sm:flex items-center gap-3">
+            <span className="text-green-600 font-medium">
+              Find: {creditBalance.find.toLocaleString()}
+            </span>
+            <span className="text-blue-600 font-medium">
+              Verify: {creditBalance.verify.toLocaleString()}
+            </span>
+            <span className="text-purple-600 font-medium capitalize">
+              {creditBalance.plan}
+            </span>
+          </div>
+        )}
         {isAuthenticated ? (
           <div className="flex items-center gap-2">
             <span className="text-foreground font-medium">{user?.name || 'Unknown User'}</span>
@@ -141,6 +170,7 @@ function Layout() {
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/verify" element={<VerifyPage />} />
                   <Route path="/bulk-search" element={<BulkSearchPage />} />
+                  <Route path="/billing" element={<BillingPage />} />
                   <Route path="/" element={<Navigate to="/search" replace />} />
                   <Route path="*" element={<div className="p-6 text-center">Not Found</div>} />
                 </Routes>

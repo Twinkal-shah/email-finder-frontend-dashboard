@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/auth.jsx'
 import { getUserProfile, getUserTransactions } from '../api/user.js'
 import { PRODUCTS, openCheckout, formatPrice, formatCredits } from '../services/lemonsqueezy.js'
+import { useCredits } from '../services/creditManager.jsx'
 
 function CreditCard({ title, credits, icon, color }) {
   return (

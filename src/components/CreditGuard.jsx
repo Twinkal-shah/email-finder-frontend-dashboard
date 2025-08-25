@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useCredits } from '../services/creditManager.js'
+import { useCredits } from '../services/creditManager.jsx'
 import { useAuth } from '../contexts/auth.jsx'
 import { AlertTriangle, CreditCard, Zap } from 'lucide-react'
 

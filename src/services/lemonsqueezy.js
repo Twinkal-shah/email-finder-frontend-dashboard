@@ -1,8 +1,8 @@
 // LemonSqueezy configuration and checkout integration
 
 // LemonSqueezy store configuration
-const LEMONSQUEEZY_STORE_ID = process.env.VITE_LEMONSQUEEZY_STORE_ID
-const LEMONSQUEEZY_API_KEY = process.env.VITE_LEMONSQUEEZY_API_KEY
+const LEMONSQUEEZY_STORE_ID = import.meta.env.VITE_LEMONSQUEEZY_STORE_ID
+const LEMONSQUEEZY_API_KEY = import.meta.env.VITE_LEMONSQUEEZY_API_KEY
 
 // Product configurations with LemonSqueezy product/variant IDs
 // Note: Replace these with your actual LemonSqueezy product/variant IDs
