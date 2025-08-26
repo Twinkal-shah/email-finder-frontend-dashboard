@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useFindResults } from '../contexts/findResults.jsx'
 import { useMutation } from '@tanstack/react-query'
 import Papa from 'papaparse'
-import { useEmailService } from '../services/emailService.js'
+import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
 
 function normalizeConfidence(raw, statusLike, validLike) {
@@ -69,7 +69,6 @@ export default function SearchPage() {
   const [mode, setMode] = useState('Person')
   const [formError, setFormError] = useState('')
   const { rows: accumulatedRows, appendRows } = useFindResults()
-  const { findEmail } = useEmailService()
 
   const findMutation = useMutation({
     mutationFn: (payload) => findEmail(payload),
