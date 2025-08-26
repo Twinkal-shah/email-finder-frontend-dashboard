@@ -4,6 +4,7 @@ import { verifyEmail } from '../services/api.js'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
+import useRealTimeCredits from '../hooks/useRealTimeCredits.js'
 
 // function normalizeVerifyStatus(payload) {
 //   if (!payload) return '-'
@@ -33,12 +34,28 @@ export default function VerifyPage() {
   const [email, setEmail] = useState('')
   const [bulkRows, setBulkRows] = useState([])
   const [bulkResults, setBulkResults] = useState([])
+  const { hasCredits, useCredits } = useRealTimeCredits()
 
-  const verifyMutation = useMutation({ mutationFn: (payload) => verifyEmail(payload) })
+  const verifyMutation = useMutation({ 
+    mutationFn: (payload) => verifyEmail(payload),
+    onSuccess: async (res) => {
+      // Deduct credits for successful email verification
+      if (res?.data) {
+        await useCredits('verify', 1)
+      }
+    }
+  })
 
   const onVerify = (e) => {
     e.preventDefault()
     if (!email) return
+    
+    // Check if user has credits for email verification
+    if (!hasCredits('verify')) {
+      alert('Insufficient credits for email verification. Please upgrade your plan.')
+      return
+    }
+    
     verifyMutation.mutate({ email })
   }
 

@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
+import useRealTimeCredits from '../hooks/useRealTimeCredits.js'
 
 function normalizeConfidence(raw, statusLike, validLike) {
   if (raw == null) {
@@ -69,10 +70,11 @@ export default function SearchPage() {
   const [mode, setMode] = useState('Person')
   const [formError, setFormError] = useState('')
   const { rows: accumulatedRows, appendRows } = useFindResults()
+  const { hasCredits, useCredits } = useRealTimeCredits()
 
   const findMutation = useMutation({
     mutationFn: (payload) => findEmail(payload),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       const payload = res?.data
       const rows = Array.isArray(payload) ? payload : (payload ? [payload] : [])
       const normalizedRows = rows.map((r) => {
@@ -86,6 +88,11 @@ export default function SearchPage() {
         }
       })
       appendRows(normalizedRows)
+      
+      // Deduct credits for successful email finding
+      if (rows.length > 0) {
+        await useCredits('find', rows.length)
+      }
     },
     onSettled: () => setFormError(''),
   })
@@ -95,6 +102,12 @@ export default function SearchPage() {
   const onSubmit = (e) => {
     e.preventDefault()
     setFormError('')
+
+    // Check if user has credits for finding emails
+    if (!hasCredits('find')) {
+      setFormError('Insufficient credits for email finding. Please upgrade your plan.')
+      return
+    }
 
     if (mode === 'Company') {
       if (!domainOrCompany.trim()) {

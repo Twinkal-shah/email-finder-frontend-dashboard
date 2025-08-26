@@ -3,6 +3,7 @@ import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.jsx'
+import useRealTimeCredits from '../hooks/useRealTimeCredits.js'
 
 function normalizeConfidence(raw) {
   if (raw == null) return null
@@ -45,6 +46,7 @@ export default function BulkSearchPage() {
   const [results, setResults] = useState([])
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [isRunning, setIsRunning] = useState(false)
+  const { hasCredits, useCredits } = useRealTimeCredits()
 
   const pickFrom = (obj, keys) => {
     for (const key of keys) {
@@ -87,6 +89,12 @@ export default function BulkSearchPage() {
   })).filter(r => r.domain && r.name), [rows])
 
   const runBatches = async () => {
+    // Check if user has credits for bulk email finding
+    if (!hasCredits('find')) {
+      alert('Insufficient credits for bulk email finding. Please upgrade your plan.')
+      return
+    }
+
     const concurrency = 5
     setIsRunning(true)
     setResults([])
@@ -108,6 +116,11 @@ export default function BulkSearchPage() {
             domain: current.domain
           }))
         ])
+        
+        // Deduct credits for successful email finding
+        if (items.length > 0) {
+          await useCredits('find', items.length)
+        }
       } catch (e) {
         setResults(prev => [...prev, { name: current.name, domain: current.domain, email: '-', confidence: '-', error: e.message }])
       } finally {

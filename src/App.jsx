@@ -7,6 +7,7 @@ import BillingPage from './pages/BillingPage.jsx'
 import { FindResultsProvider } from './contexts/findResults.jsx'
 import { AuthProvider, useAuth } from './contexts/auth.jsx'
 import { useCredits } from './services/creditManager.jsx'
+import useRealTimeCredits from './hooks/useRealTimeCredits.js'
 import { useState, useEffect } from 'react'
 
 const queryClient = new QueryClient()
@@ -72,19 +73,11 @@ function Sidebar() {
 
 function Topbar() {
   const { user, isAuthenticated, logout } = useAuth()
-  const [creditBalance, setCreditBalance] = useState({ find: 0, verify: 0, plan: 'free' })
+  const { credits, plan, fullName, loading } = useRealTimeCredits()
   
   const handleLogout = () => {
     logout()
   }
-
-  // Load credit balance for authenticated users
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      // Mock credit data for demo - in real app this would come from useCredits hook
-      setCreditBalance({ find: 25, verify: 25, plan: 'free' })
-    }
-  }, [isAuthenticated, user])
 
   return (
     <header className="h-14 border-b border-border px-4 flex items-center justify-between bg-card">
@@ -92,20 +85,26 @@ function Topbar() {
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         {isAuthenticated && (
           <div className="hidden sm:flex items-center gap-3">
-            <span className="text-green-600 font-medium">
-              Find: {creditBalance.find.toLocaleString()}
-            </span>
-            <span className="text-blue-600 font-medium">
-              Verify: {creditBalance.verify.toLocaleString()}
-            </span>
-            <span className="text-purple-600 font-medium capitalize">
-              {creditBalance.plan}
-            </span>
+            {loading ? (
+              <span className="text-muted-foreground">Loading...</span>
+            ) : (
+              <>
+                <span className="text-green-600 font-medium">
+                  Find: {credits.find.toLocaleString()}
+                </span>
+                <span className="text-blue-600 font-medium">
+                  Verify: {credits.verify.toLocaleString()}
+                </span>
+                <span className="text-purple-600 font-medium capitalize">
+                  {plan}
+                </span>
+              </>
+            )}
           </div>
         )}
         {isAuthenticated ? (
           <div className="flex items-center gap-2">
-            <span className="text-foreground font-medium">{user?.name || 'Unknown User'}</span>
+            <span className="text-foreground font-medium">{fullName || user?.email || 'Unknown User'}</span>
             <button 
               onClick={handleLogout}
               className="px-3 py-1.5 rounded-md border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
