@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { verifyEmail } from '../services/api.js'
+import { useEmailService } from '../services/emailService.js'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
@@ -30,6 +30,7 @@ function normalizeVerifyStatus(payload) {
 
 
 export default function VerifyPage() {
+  const { verifyEmail } = useEmailService()
   const [email, setEmail] = useState('')
   const [bulkRows, setBulkRows] = useState([])
   const [bulkResults, setBulkResults] = useState([])

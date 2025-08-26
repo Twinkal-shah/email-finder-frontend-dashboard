@@ -72,17 +72,51 @@ function Sidebar() {
 
 function Topbar() {
   const { user, isAuthenticated, logout } = useAuth()
+  const { getCreditBalance } = useCredits()
   const [creditBalance, setCreditBalance] = useState({ find: 0, verify: 0, plan: 'free' })
+  const [userProfile, setUserProfile] = useState(null)
   
   const handleLogout = () => {
     logout()
   }
 
-  // Load credit balance for authenticated users
+  // Load credit balance and user profile for authenticated users
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Mock credit data for demo - in real app this would come from useCredits hook
-      setCreditBalance({ find: 25, verify: 25, plan: 'free' })
+      loadUserData()
+    }
+  }, [isAuthenticated, user])
+
+  const loadUserData = async () => {
+    try {
+      // Get credit balance from profiles table
+      const balance = await getCreditBalance()
+      setCreditBalance(balance)
+      
+      // Get user profile data including full_name
+      const { getUserProfile } = await import('./api/user.js')
+      const profile = await getUserProfile(user.id)
+      setUserProfile(profile)
+    } catch (error) {
+      console.error('Error loading user data:', error)
+      // Fallback to default values
+      setCreditBalance({ find: 0, verify: 0, plan: 'free' })
+    }
+  }
+
+  // Listen for credit updates
+  useEffect(() => {
+    const handleCreditUpdate = () => {
+      if (isAuthenticated && user) {
+        loadUserData()
+      }
+    }
+
+    // Listen for custom credit update events
+    window.addEventListener('creditUpdate', handleCreditUpdate)
+    
+    return () => {
+      window.removeEventListener('creditUpdate', handleCreditUpdate)
     }
   }, [isAuthenticated, user])
 
@@ -105,7 +139,7 @@ function Topbar() {
         )}
         {isAuthenticated ? (
           <div className="flex items-center gap-2">
-            <span className="text-foreground font-medium">{user?.name || 'Unknown User'}</span>
+            <span className="text-foreground font-medium">{userProfile?.full_name || user?.name || 'Unknown User'}</span>
             <button 
               onClick={handleLogout}
               className="px-3 py-1.5 rounded-md border border-border hover:bg-accent hover:text-accent-foreground transition-colors"

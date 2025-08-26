@@ -16,7 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export async function getUserProfile(userId) {
   try {
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
@@ -30,7 +30,7 @@ export async function getUserProfile(userId) {
     if (data.plan_expiry && new Date(data.plan_expiry) < new Date()) {
       // Auto-downgrade expired subscriptions
       const { data: updatedUser } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           plan: 'free',
           subscription_id: null,
@@ -116,7 +116,7 @@ export async function deductCredits(userId, creditsToDeduct, creditType = 'find'
     // Deduct credits
     const updateField = creditType === 'find' ? 'credits_find' : 'credits_verify'
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .update({
         [updateField]: creditCheck.availableCredits - creditsToDeduct
       })
@@ -147,7 +147,7 @@ export async function deductCredits(userId, creditsToDeduct, creditType = 'find'
 export async function upsertUserProfile(userData) {
   try {
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .upsert(userData, {
         onConflict: 'email',
         ignoreDuplicates: false
@@ -173,7 +173,7 @@ export async function upsertUserProfile(userData) {
 export async function getUserByEmail(email) {
   try {
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .select('*')
       .eq('email', email)
       .single()

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
-import { findEmail } from '../services/api.js'
+import { useEmailService } from '../services/emailService.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.jsx'
 
 function normalizeConfidence(raw) {
@@ -41,6 +41,7 @@ function ConfidencePill({ value }) {
 }
 
 export default function BulkSearchPage() {
+  const { findEmail } = useEmailService()
   const [rows, setRows] = useState([])
   const [results, setResults] = useState([])
   const [progress, setProgress] = useState({ done: 0, total: 0 })

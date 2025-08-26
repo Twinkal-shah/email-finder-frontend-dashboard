@@ -1,7 +1,7 @@
 -- Create transactions table for tracking LemonSqueezy purchases
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   lemonsqueezy_order_id VARCHAR(255),
   lemonsqueezy_subscription_id VARCHAR(255),
   product_name VARCHAR(255) NOT NULL,

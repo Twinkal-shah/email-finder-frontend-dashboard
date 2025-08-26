@@ -90,7 +90,7 @@ function verifyWebhookSignature(payload, signature) {
  */
 async function findUserByEmail(email) {
   const { data, error } = await supabase
-    .from('users')
+    .from('profiles')
     .select('*')
     .eq('email', email)
     .single()
@@ -111,7 +111,7 @@ async function createUserIfNotExists(email) {
   
   if (!user) {
     const { data, error } = await supabase
-      .from('users')
+      .from('profiles')
       .insert({
         email,
         plan: 'free',
@@ -137,7 +137,7 @@ async function createUserIfNotExists(email) {
  */
 async function updateUserCreditsAndPlan(userId, updates) {
   const { data, error } = await supabase
-    .from('users')
+    .from('profiles')
     .update(updates)
     .eq('id', userId)
     .select()

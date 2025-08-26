@@ -162,7 +162,7 @@ export async function handleSubscriptionPaymentSuccess(eventData) {
     
     // Find user by subscription ID
     const { data: user, error } = await supabase
-      .from('users')
+      .from('profiles')
       .select('*')
       .eq('subscription_id', subscription.id)
       .single()
@@ -234,7 +234,7 @@ export async function handleSubscriptionExpired(eventData) {
     
     // Find user by subscription ID
     const { data: user, error } = await supabase
-      .from('users')
+      .from('profiles')
       .select('*')
       .eq('subscription_id', subscription.id)
       .single()
