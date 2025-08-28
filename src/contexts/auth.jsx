@@ -62,6 +62,22 @@ async function validateAccessToken(accessToken, refreshToken = null) {
     // Import supabase directly to avoid circular dependency
     const { supabase } = await import('../services/supabase')
     
+    // Check if this is a test token (for development/debugging)
+    const isTestToken = accessToken.startsWith('test_') || accessToken.startsWith('existing_') || accessToken.startsWith('debug_') || accessToken.startsWith('new_') || accessToken.startsWith('premium_')
+    
+    if (isTestToken) {
+      console.log('🧪 Test token detected, skipping JWT validation')
+      // For test tokens, we'll create a mock user using URL parameters
+      const urlParams = getUrlParams()
+      return {
+        id: urlParams.user_id || 'test-user-id',
+        email: urlParams.email || 'test@example.com',
+        user_metadata: {
+          name: urlParams.name || 'Test User'
+        }
+      }
+    }
+    
     // Try to decode the JWT token first to check if it's valid
     try {
       const payload = JSON.parse(atob(accessToken.split('.')[1]))

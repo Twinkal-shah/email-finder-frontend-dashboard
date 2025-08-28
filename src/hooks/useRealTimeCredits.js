@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/auth.jsx'
 import { getUserProfile, deductCredits } from '../api/user.js'
 import { createClient } from '@supabase/supabase-js'
-import { initializeUserProfile } from '../utils/profileCreator.js'
 
 // Initialize Supabase client for real-time subscriptions
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -27,31 +26,19 @@ export function useRealTimeCredits() {
 
   // Fetch initial credit data
   const fetchCreditData = useCallback(async () => {
+    console.log('🔍 fetchCreditData called with:', { isAuthenticated, userId: user?.id, user })
+    
     if (!isAuthenticated || !user?.id) {
+      console.log('❌ Not authenticated or no user ID:', { isAuthenticated, userId: user?.id })
       setCreditData(prev => ({ ...prev, loading: false }))
       return
     }
 
     try {
+      console.log('🚀 Fetching profile for user ID:', user.id)
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
-      
-      // Try to get user profile
-      let profile
-      try {
-        profile = await getUserProfile(user.id)
-      } catch (profileError) {
-        console.log('Profile not found, attempting to create...')
-        
-        // If profile doesn't exist, try to create it
-        try {
-          await initializeUserProfile(user)
-          profile = await getUserProfile(user.id)
-          console.log('✅ Profile created and loaded successfully')
-        } catch (createError) {
-          console.error('Failed to create profile:', createError)
-          throw createError
-        }
-      }
+      const profile = await getUserProfile(user.id)
+      console.log('✅ Profile fetched successfully:', profile)
       
       setCreditData({
         find: profile.credits_find || 0,
@@ -63,7 +50,7 @@ export function useRealTimeCredits() {
         error: null
       })
     } catch (error) {
-      console.error('Error fetching credit data:', error)
+      console.error('❌ Error fetching credit data:', error)
       setCreditData(prev => ({
         ...prev,
         loading: false,
@@ -74,8 +61,14 @@ export function useRealTimeCredits() {
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) return
+    console.log('🔄 useEffect triggered with:', { isAuthenticated, userId: user?.id })
+    
+    if (!isAuthenticated || !user?.id) {
+      console.log('❌ Skipping subscription setup - not authenticated or no user ID')
+      return
+    }
 
+    console.log('📡 Setting up real-time subscription for user:', user.id)
     // Initial fetch
     fetchCreditData()
 

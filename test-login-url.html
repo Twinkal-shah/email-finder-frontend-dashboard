@@ -8,6 +8,14 @@
     <p>Current origin: <span id="origin"></span></p>
     <p>Generated login URL: <a id="loginUrl" href="#" target="_blank">Click to test</a></p>
     
+    <div style="margin-top: 20px;">
+        <h3>Test User Presets:</h3>
+        <button onclick="loadPreset('existing')" type="button">Load Existing User (twinkalshah719@gmail.com)</button><br>
+        <button onclick="loadPreset('new')" type="button">Load New User (test@example.com)</button><br>
+        <button onclick="loadPreset('premium')" type="button">Load Premium User (premium@example.com)</button><br>
+        <button onclick="loadPreset('debug')" type="button">Load Debug User (debug@test.com)</button>
+    </div>
+    
     <script>
         const origin = window.location.origin;
         document.getElementById('origin').textContent = origin;
@@ -19,6 +27,51 @@
         
         console.log('Origin:', origin);
         console.log('Login URL:', loginUrl);
+        
+        // Test user presets for debugging
+        const userPresets = {
+            existing: {
+                email: 'twinkalshah719@gmail.com',
+                name: 'Existing User',
+                userId: 'existing_user_123',
+                accessToken: 'existing_access_token_12345',
+                refreshToken: 'existing_refresh_token_12345'
+            },
+            new: {
+                email: 'test@example.com',
+                name: 'New User',
+                userId: 'new_user_456',
+                accessToken: 'new_access_token_67890',
+                refreshToken: 'new_refresh_token_67890'
+            },
+            premium: {
+                email: 'premium@example.com',
+                name: 'Premium User',
+                userId: 'premium_user_789',
+                accessToken: 'premium_access_token_99999',
+                refreshToken: 'premium_refresh_token_99999'
+            },
+            debug: {
+                email: 'debug@test.com',
+                name: 'Debug User',
+                userId: 'debug_user_999',
+                accessToken: 'debug_access_token_12345',
+                refreshToken: 'debug_refresh_token_12345'
+            }
+        };
+        
+        function loadPreset(type) {
+            const user = userPresets[type];
+            if (user) {
+                localStorage.setItem('userEmail', user.email);
+                localStorage.setItem('userName', user.name);
+                localStorage.setItem('userId', user.userId);
+                localStorage.setItem('accessToken', user.accessToken);
+                localStorage.setItem('refreshToken', user.refreshToken);
+                console.log('Loaded preset:', type, user);
+                alert(`Loaded ${type} user: ${user.email}`);
+            }
+        }
     </script>
 </body>
 </html>
