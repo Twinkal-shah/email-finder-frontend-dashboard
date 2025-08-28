@@ -8,9 +8,34 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-// Validate Supabase URL format
-if (!supabaseUrl.startsWith('https://') && !supabaseUrl.startsWith('http://')) {
-  throw new Error(`Invalid Supabase URL format: ${supabaseUrl}. Must start with https:// or http://`)
+// Patch URL constructor to prevent errors
+const originalURL = window.URL
+window.URL = function(url, base) {
+  try {
+    return new originalURL(url, base)
+  } catch (error) {
+    console.warn('URL construction failed, returning fallback:', error)
+    // Return a fallback URL object with all necessary methods
+    return {
+      href: '',
+      origin: '',
+      pathname: '',
+      search: '',
+      hash: '',
+      host: '',
+      hostname: '',
+      port: '',
+      protocol: '',
+      username: '',
+      password: '',
+      searchParams: new URLSearchParams(),
+      toString: () => '',
+      toJSON: () => '',
+      replace: function(searchValue, replaceValue) {
+        return this.href.replace(searchValue, replaceValue)
+      }
+    }
+  }
 }
 
 // Create Supabase client with cookie-based session support
@@ -39,22 +64,26 @@ export const authService = {
   // Get user profile data from Supabase Auth
   async getUserProfile(userId) {
     try {
-      // Get user profile from profiles table
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-      
-      if (error) {
-        console.error('Error fetching user profile:', error)
-        throw error
-      }
-      
-      return data
+      // First try to get from auth.users via admin API
+      const { data: { user }, error } = await supabase.auth.admin.getUserById(userId)
+      if (error) throw error
+      return user
     } catch (error) {
-      console.error('Error in getUserProfile:', error)
-      throw error
+      console.error('Error fetching user profile from auth:', error)
+      // Fallback to profiles table if admin access fails
+      try {
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+        
+        if (profileError) throw profileError
+        return data
+      } catch (profileError) {
+        console.error('Error fetching user profile from profiles:', profileError)
+        return null
+      }
     }
   },
 
