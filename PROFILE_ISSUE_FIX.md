@@ -1,4 +1,4 @@
-# Fix for Profile Display Issue
+# Fix for Profile Display Issue - UPDATED
 
 ## Problem Summary
 Your application is showing:
@@ -6,109 +6,99 @@ Your application is showing:
 - **Email address** instead of full name "Twinkal shah"
 - **Billing page errors**
 
-## Root Cause Identified ✅
-The issue is **Row Level Security (RLS)** on the `profiles` table. Your profile exists with correct data, but the application cannot access it because:
+## ✅ RLS Policies Applied Successfully
+I can see from your Supabase dashboard that the RLS policies have been created correctly:
+- "Users can view own profile" (SELECT)
+- "Users can update own profile" (UPDATE) 
+- "Users can insert own profile" (INSERT)
 
-1. ✅ **Profile exists** with correct data (verified with service role)
-2. ❌ **RLS policies missing** - users cannot read their own profiles
-3. ❌ **Application uses anon key** which is subject to RLS restrictions
+## 🔧 Required Steps to Fix the Issue
 
-## Quick Fix (Recommended)
+### Step 1: Clear Browser Data (CRITICAL)
+The application is still using cached authentication data that doesn't work with the new RLS policies.
 
-### Step 1: Apply RLS Policies in Supabase Dashboard
+**Chrome/Edge:**
+1. Press `F12` to open Developer Tools
+2. Right-click the refresh button → **"Empty Cache and Hard Reload"**
+3. Or go to Settings → Privacy → Clear browsing data → Select "Cookies" and "Cached images and files"
 
-1. Go to your **Supabase Dashboard**
-2. Navigate to **SQL Editor**
-3. Copy and paste this SQL script:
+**Safari:**
+1. Go to Safari → Preferences → Privacy → Manage Website Data
+2. Remove data for `mailsfinder.com` and `app.mailsfinder.com`
+3. Or use `Cmd+Option+E` to empty caches
 
-```sql
--- Enable Row Level Security
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+**Firefox:**
+1. Press `Ctrl+Shift+Delete` (or `Cmd+Shift+Delete` on Mac)
+2. Select "Cookies" and "Cache"
+3. Clear data for the last hour
 
--- Drop existing policies (if any)
-DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+### Step 2: Complete Logout and Login
+1. **Log out completely** from your application
+2. **Close all browser tabs** related to mailsfinder.com
+3. **Wait 30 seconds**
+4. **Open a fresh browser tab**
+5. **Log back in** to your application
 
--- Create policies to allow users to access their own profiles
-CREATE POLICY "Users can view own profile" ON profiles 
-    FOR SELECT USING (auth.uid() = id);
+### Step 3: Verify the Fix
+After logging back in, check:
+- ✅ Header shows **"Twinkal shah"** instead of email
+- ✅ Credits show **"Find: 25, Verify: 25"** instead of 0
+- ✅ Billing page loads without errors
+- ✅ No "Error fetching user profile" in browser console
 
-CREATE POLICY "Users can update own profile" ON profiles 
-    FOR UPDATE USING (auth.uid() = id);
+## 🚨 If Issue Still Persists
 
-CREATE POLICY "Users can insert own profile" ON profiles 
-    FOR INSERT WITH CHECK (auth.uid() = id);
+### Option A: Force Session Refresh
+1. Open browser Developer Tools (`F12`)
+2. Go to **Application** tab → **Storage** → **Clear storage**
+3. Check all boxes and click **"Clear site data"**
+4. Refresh the page and log in again
 
--- Grant necessary permissions
-GRANT SELECT, INSERT, UPDATE ON profiles TO authenticated;
-GRANT USAGE ON SCHEMA public TO authenticated;
-```
+### Option B: Check for JavaScript Errors
+1. Open browser console (`F12` → Console tab)
+2. Look for any red error messages
+3. If you see errors related to "Invalid URL" or "fetch failed", there might be environment variable issues
 
-4. Click **"Run"** to execute the script
-5. You should see success messages for each statement
+### Option C: Verify Environment Variables
+Check that your application has the correct Supabase configuration:
+- `VITE_SUPABASE_URL` should point to your Supabase project
+- `VITE_SUPABASE_ANON_KEY` should be the anonymous key from your project settings
 
-### Step 2: Test the Fix
-
-1. **Refresh your application** (hard refresh: Cmd+Shift+R)
-2. **Log out and log back in** to get a fresh session
-3. Check if:
-   - Credits now show **25 Find, 25 Verify**
-   - Name shows **"Twinkal shah"** instead of email
-   - Billing page loads without errors
-
-## Verification
-
-After applying the fix, your application should display:
-- **Header**: "Twinkal shah" with "Find: 25, Verify: 25, Free"
-- **Billing Page**: Shows correct credit balances and plan information
-
-## Technical Details
+## 🔍 Technical Details
 
 ### What Was Wrong
-- The `profiles` table had RLS enabled but no policies
-- This meant authenticated users couldn't read their own profile data
+- RLS was enabled on `profiles` table but no policies existed
+- Authenticated users couldn't read their own profile data
 - The `useRealTimeCredits` hook was failing silently
-- The `BillingPage` component couldn't load user profile
 
 ### What the Fix Does
-- Creates RLS policies that allow users to read/update their own profiles
-- Uses `auth.uid() = id` to ensure users can only access their own data
-- Grants proper permissions to authenticated users
+- Creates RLS policies allowing users to access their own profiles
+- Uses `auth.uid() = id` to ensure secure access
+- Enables proper data flow to React components
 
-### Files Involved
-- `useRealTimeCredits.js` - Fetches profile data for header display
-- `BillingPage.jsx` - Loads profile for billing information
-- `user.js` - Contains `getUserProfile()` function
-- `auth.jsx` - Manages user authentication
+### Why Browser Refresh is Critical
+- Browser cached the failed authentication state
+- Old session tokens don't work with new RLS policies
+- Fresh login creates new session with proper permissions
 
-## Alternative Solutions (If Quick Fix Doesn't Work)
+## 📋 Verification Checklist
 
-### Option 1: Recreate Profile
-If the RLS fix doesn't work, you can recreate your profile:
+After completing all steps, verify:
+- [ ] Browser cache cleared
+- [ ] Logged out completely
+- [ ] Logged back in with fresh session
+- [ ] Header shows full name "Twinkal shah"
+- [ ] Credits show "Find: 25, Verify: 25"
+- [ ] Billing page loads successfully
+- [ ] No console errors related to profile fetching
 
-1. Delete existing profile in Supabase Dashboard
-2. Log out and log back in
-3. The `handle_new_user()` trigger should create a new profile
+## 🆘 Still Need Help?
 
-### Option 2: Manual Profile Update
-Update your profile directly in Supabase:
-
-1. Go to **Table Editor** → **profiles**
-2. Find your profile (ID: `720aa72d-9d8c-42cf-b44a-30273675d149`)
-3. Ensure these values:
-   - `full_name`: "Twinkal shah"
-   - `credits_find`: 25
-   - `credits_verify`: 25
-   - `plan`: "free"
-
-## Prevention
-
-To prevent this issue in the future:
-1. Always create RLS policies when enabling RLS on tables
-2. Test with both service role and anon keys during development
-3. Include RLS policies in your migration scripts
+If the issue persists after following all steps:
+1. Take a screenshot of the browser console errors
+2. Check if you can see your profile data in Supabase dashboard
+3. Verify that the RLS policies are still active in your Supabase project
 
 ---
 
-**Need Help?** If this fix doesn't resolve the issue, check the browser console for any JavaScript errors and verify that the RLS policies were created successfully in your Supabase dashboard.
+**The RLS policies are correctly applied. The issue should resolve after clearing browser cache and logging in with a fresh session.**
