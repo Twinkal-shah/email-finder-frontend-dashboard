@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/auth.jsx'
 import { getUserProfile, deductCredits } from '../api/user.js'
 import { createClient } from '@supabase/supabase-js'
+import { initializeUserProfile } from '../utils/profileCreator.js'
 
 // Initialize Supabase client for real-time subscriptions
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -33,7 +34,24 @@ export function useRealTimeCredits() {
 
     try {
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
-      const profile = await getUserProfile(user.id)
+      
+      // Try to get user profile
+      let profile
+      try {
+        profile = await getUserProfile(user.id)
+      } catch (profileError) {
+        console.log('Profile not found, attempting to create...')
+        
+        // If profile doesn't exist, try to create it
+        try {
+          await initializeUserProfile(user)
+          profile = await getUserProfile(user.id)
+          console.log('✅ Profile created and loaded successfully')
+        } catch (createError) {
+          console.error('Failed to create profile:', createError)
+          throw createError
+        }
+      }
       
       setCreditData({
         find: profile.credits_find || 0,

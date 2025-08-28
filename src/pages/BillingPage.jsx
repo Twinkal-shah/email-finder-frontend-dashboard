@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/auth.jsx'
 import { getUserProfile, getUserTransactions } from '../api/user.js'
 import { PRODUCTS, openCheckout, formatPrice, formatCredits } from '../services/lemonsqueezy.js'
 import { useCredits } from '../services/creditManager.jsx'
+import { initializeUserProfile } from '../utils/profileCreator.js'
 
 function CreditCard({ title, credits, icon, color }) {
   return (
@@ -150,16 +151,34 @@ export default function BillingPage() {
   const loadUserData = async () => {
     try {
       setLoading(true)
-      const [profile, transactionData] = await Promise.all([
-        getUserProfile(user.id),
-        getUserTransactions(user.id, 10)
-      ])
+      setError(null)
+      
+      // Try to get user profile
+      let profile
+      try {
+        profile = await getUserProfile(user.id)
+      } catch (profileError) {
+        console.log('Profile not found, attempting to create...')
+        
+        // If profile doesn't exist, try to create it
+        try {
+          await initializeUserProfile(user)
+          profile = await getUserProfile(user.id)
+          console.log('✅ Profile created and loaded successfully')
+        } catch (createError) {
+          console.error('Failed to create profile:', createError)
+          throw new Error('Unable to create user profile. Please contact support.')
+        }
+      }
+      
+      // Get transactions
+      const transactionData = await getUserTransactions(user.id, 10)
       
       setUserProfile(profile)
       setTransactions(transactionData.transactions)
     } catch (err) {
       console.error('Error loading user data:', err)
-      setError('Failed to load billing information')
+      setError(err.message || 'Failed to load billing information')
     } finally {
       setLoading(false)
     }

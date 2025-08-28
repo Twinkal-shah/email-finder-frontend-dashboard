@@ -4,6 +4,7 @@ import { getSessionFromCookies, clearSessionCookies, isAuthenticatedFromCookies 
 
 const STORAGE_KEY = 'auth_user'
 const TOKEN_STORAGE_KEY = 'auth_tokens'
+const FIND_RESULTS_STORAGE_KEY = 'find_results'
 
 const AuthContext = createContext(null)
 
@@ -552,6 +553,7 @@ export function AuthProvider({ children }) {
         setTokens(null)
         setAuthError(null)
         localStorage.removeItem(TOKEN_STORAGE_KEY)
+        localStorage.removeItem(FIND_RESULTS_STORAGE_KEY) // Clear search results
         clearSessionCookies() // Clear cross-domain cookies on logout
       } catch (error) {
         console.error('Logout error:', error)
@@ -559,6 +561,7 @@ export function AuthProvider({ children }) {
         setTokens(null)
         setAuthError(null)
         localStorage.removeItem(TOKEN_STORAGE_KEY)
+        localStorage.removeItem(FIND_RESULTS_STORAGE_KEY) // Clear search results even on error
         clearSessionCookies() // Clear cross-domain cookies even on error
       }
     },

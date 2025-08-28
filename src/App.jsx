@@ -142,7 +142,7 @@ function AuthGuard({ children }) {
             <p className="text-muted-foreground">Please log in through mailsfinder.com to access the dashboard.</p>
           </div>
           <a 
-            href="https://www.mailsfinder.com/login.html" 
+            href={`https://www.mailsfinder.com/login.html?return_url=${encodeURIComponent(window.location.origin)}`}
             className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
           >
             Go to Login

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Authentication Flow</title>
+</head>
+<body>
+    <h1>Testing Authentication Flow</h1>
+    <p>Click the link below to test authentication with valid token structure:</p>
+    <a href="http://localhost:5173/?access_token=valid_token_here&refresh_token=valid_refresh_token&name=Test%20User&email=test@example.com&expires_at=9999999999999" target="_blank">
+        Test Authentication Flow
+    </a>
+    
+    <h2>What should happen:</h2>
+    <ol>
+        <li>URL parameters are detected</li>
+        <li>Token validation is attempted</li>
+        <li>User data is set from URL parameters</li>
+        <li>Dashboard should load</li>
+    </ol>
+    
+    <h2>Current Status:</h2>
+    <p>The authentication flow is working correctly. The issue is that without valid tokens in the URL or stored tokens, the app correctly shows "Authentication Required".</p>
+    
+    <h2>To test with real authentication:</h2>
+    <p>You need to provide valid Supabase tokens in the URL parameters or have them stored in localStorage.</p>

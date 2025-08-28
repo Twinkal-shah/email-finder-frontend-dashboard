@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login URL</title>
+</head>
+<body>
+    <h1>Login URL Test</h1>
+    <p>Current origin: <span id="origin"></span></p>
+    <p>Generated login URL: <a id="loginUrl" href="#" target="_blank">Click to test</a></p>
+    
+    <script>
+        const origin = window.location.origin;
+        document.getElementById('origin').textContent = origin;
+        
+        const loginUrl = `https://www.mailsfinder.com/login.html?return_url=${encodeURIComponent(origin)}`;
+        const linkElement = document.getElementById('loginUrl');
+        linkElement.href = loginUrl;
+        linkElement.textContent = loginUrl;
+        
+        console.log('Origin:', origin);
+        console.log('Login URL:', loginUrl);
+    </script>
+</body>
+</html>
