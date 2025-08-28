@@ -2,8 +2,8 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
 // Initialize Supabase client with service role key for admin operations
-const supabaseUrl = process.env.VITE_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseServiceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error('Missing Supabase environment variables')
@@ -12,7 +12,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 // LemonSqueezy webhook secret
-const LEMONSQUEEZY_WEBHOOK_SECRET = process.env.LEMONSQUEEZY_WEBHOOK_SECRET
+const LEMONSQUEEZY_WEBHOOK_SECRET = import.meta.env.LEMONSQUEEZY_WEBHOOK_SECRET
 
 if (!LEMONSQUEEZY_WEBHOOK_SECRET) {
   throw new Error('Missing LEMONSQUEEZY_WEBHOOK_SECRET environment variable')
