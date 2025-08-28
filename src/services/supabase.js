@@ -64,24 +64,26 @@ export const authService = {
   // Get user profile data from Supabase Auth
   async getUserProfile(userId) {
     try {
-      console.log('Fetching user profile for userId:', userId)
-      // Get user profile from profiles table
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-      
-      if (error) {
-        console.error('Error fetching user profile from profiles:', error)
+      // First try to get from auth.users via admin API
+      const { data: { user }, error } = await supabase.auth.admin.getUserById(userId)
+      if (error) throw error
+      return user
+    } catch (error) {
+      console.error('Error fetching user profile from auth:', error)
+      // Fallback to profiles table if admin access fails
+      try {
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+        
+        if (profileError) throw profileError
+        return data
+      } catch (profileError) {
+        console.error('Error fetching user profile from profiles:', profileError)
         return null
       }
-      
-      console.log('User profile found:', data)
-      return data
-    } catch (profileError) {
-      console.error('Error fetching user profile:', profileError)
-      return null
     }
   },
 
@@ -216,26 +218,29 @@ export const authService = {
 
 // Database service functions
 export const dbService = {
-  // Get user by email from profiles table
+  // Get user by email from Supabase Auth
   async getUserByEmail(email) {
     try {
-      console.log('Fetching user profile by email:', email)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', email)
-        .single()
+      const { data, error } = await supabase.auth.admin.getUserByEmail(email)
       
-      if (error) {
-        console.error('Error fetching user profile by email:', error)
+      if (error) throw error
+      return data.user
+    } catch (error) {
+      console.error('Error fetching user by email from auth:', error)
+      // Fallback to profiles table
+      try {
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', email)
+          .single()
+        
+        if (profileError) throw profileError
+        return data
+      } catch (profileError) {
+        console.error('Error fetching user by email from profiles:', profileError)
         return null
       }
-      
-      console.log('User profile found:', data)
-      return data
-    } catch (profileError) {
-      console.error('Error fetching user by email from profiles:', profileError)
-      return null
     }
   },
 

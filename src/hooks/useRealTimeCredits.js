@@ -26,19 +26,14 @@ export function useRealTimeCredits() {
 
   // Fetch initial credit data
   const fetchCreditData = useCallback(async () => {
-    console.log('🔍 fetchCreditData called with:', { isAuthenticated, userId: user?.id, user })
-    
     if (!isAuthenticated || !user?.id) {
-      console.log('❌ Not authenticated or no user ID:', { isAuthenticated, userId: user?.id })
       setCreditData(prev => ({ ...prev, loading: false }))
       return
     }
 
     try {
-      console.log('🚀 Fetching profile for user ID:', user.id)
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
       const profile = await getUserProfile(user.id)
-      console.log('✅ Profile fetched successfully:', profile)
       
       setCreditData({
         find: profile.credits_find || 0,
@@ -50,7 +45,7 @@ export function useRealTimeCredits() {
         error: null
       })
     } catch (error) {
-      console.error('❌ Error fetching credit data:', error)
+      console.error('Error fetching credit data:', error)
       setCreditData(prev => ({
         ...prev,
         loading: false,
@@ -61,14 +56,8 @@ export function useRealTimeCredits() {
 
   // Set up real-time subscription
   useEffect(() => {
-    console.log('🔄 useEffect triggered with:', { isAuthenticated, userId: user?.id })
-    
-    if (!isAuthenticated || !user?.id) {
-      console.log('❌ Skipping subscription setup - not authenticated or no user ID')
-      return
-    }
+    if (!isAuthenticated || !user?.id) return
 
-    console.log('📡 Setting up real-time subscription for user:', user.id)
     // Initial fetch
     fetchCreditData()
 
