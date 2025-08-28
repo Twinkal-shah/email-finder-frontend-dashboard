@@ -23,6 +23,15 @@ CREATE INDEX IF NOT EXISTS idx_transactions_lemonsqueezy_subscription_id ON tran
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
 
+-- Create updated_at trigger function if it doesn't exist
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Create updated_at trigger
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -36,4 +45,4 @@ CREATE POLICY "Users can view own transactions" ON transactions
 
 -- Create policy for service role to insert/update transactions (for webhooks)
 CREATE POLICY "Service role can manage transactions" ON transactions
-    FOR ALL USING (auth.role() = 'service_role');
+    FOR ALL USING (auth.jwt() ->> 'role' = 'service_role');
