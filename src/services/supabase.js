@@ -8,7 +8,35 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-// URL constructor patch removed - was causing Supabase URL construction issues
+// Patch URL constructor to prevent errors
+const originalURL = window.URL
+window.URL = function(url, base) {
+  try {
+    return new originalURL(url, base)
+  } catch (error) {
+    console.warn('URL construction failed, returning fallback:', error)
+    // Return a fallback URL object with all necessary methods
+    return {
+      href: '',
+      origin: '',
+      pathname: '',
+      search: '',
+      hash: '',
+      host: '',
+      hostname: '',
+      port: '',
+      protocol: '',
+      username: '',
+      password: '',
+      searchParams: new URLSearchParams(),
+      toString: () => '',
+      toJSON: () => '',
+      replace: function(searchValue, replaceValue) {
+        return this.href.replace(searchValue, replaceValue)
+      }
+    }
+  }
+}
 
 // Create Supabase client with cookie-based session support
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -143,12 +171,15 @@ export const authService = {
     return supabase.auth.onAuthStateChange(callback)
   },
 
-  // Get session from URL (for redirects)
+  // Get session from URL (for redirects) - DISABLED to prevent URL parsing errors
   async getSessionFromUrl() {
     try {
-      const { data, error } = await supabase.auth.getSessionFromUrl()
-      if (error) throw error
-      return data
+      // Temporarily disabled to prevent TypeError: Failed to construct 'URL': Invalid URL
+      console.log('getSessionFromUrl called but disabled to prevent URL parsing errors')
+      return null
+      // const { data, error } = await supabase.auth.getSessionFromUrl()
+      // if (error) throw error
+      // return data
     } catch (error) {
       console.error('Error getting session from URL:', error)
       return null

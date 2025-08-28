@@ -104,14 +104,7 @@ export const PRODUCTS = {
  * Generate checkout URL with custom data
  */
 export function generateCheckoutUrl(product, userEmail, customData = {}) {
-  const baseUrl = product?.checkoutUrl
-  
-  // Validate that we have a valid checkout URL
-  if (!baseUrl || typeof baseUrl !== 'string') {
-    console.error('Invalid or missing checkout URL for product:', product)
-    throw new Error('Invalid checkout URL provided')
-  }
-  
+  const baseUrl = product.checkoutUrl
   const params = new URLSearchParams({
     'checkout[email]': userEmail,
     'checkout[custom][user_email]': userEmail,
@@ -125,15 +118,10 @@ export function generateCheckoutUrl(product, userEmail, customData = {}) {
  * Open LemonSqueezy checkout
  */
 export function openCheckout(product, userEmail, customData = {}) {
-  try {
-    const checkoutUrl = generateCheckoutUrl(product, userEmail, customData)
-    
-    // Open in new window/tab
-    window.open(checkoutUrl, '_blank', 'noopener,noreferrer')
-  } catch (error) {
-    console.error('Failed to open checkout:', error)
-    alert('Unable to open checkout. Please try again or contact support.')
-  }
+  const checkoutUrl = generateCheckoutUrl(product, userEmail, customData)
+  
+  // Open in new window/tab
+  window.open(checkoutUrl, '_blank', 'noopener,noreferrer')
 }
 
 /**
