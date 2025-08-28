@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Direct Vercel URL</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+        }
+        .success {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #3c3;
+        }
+        .info {
+            background: #eef;
+            border: 1px solid #ccf;
+            color: #33c;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 10px 5px;
+            background: #007cba;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .button:hover {
+            background: #005a87;
+        }
+        .code {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 DNS Issue Verification Test</h1>
+        
+        <div class="info">
+            <strong>Theory:</strong> app.mailsfinder.com DNS points to old deployment with broken JavaScript
+        </div>
+
+        <h2>🧪 Test Results</h2>
+        
+        <div id="currentUrlTest" class="status info">
+            <strong>Current URL:</strong> <span id="currentUrl"></span>
+        </div>
+
+        <div id="jsFileTest" class="status info">
+            <strong>JavaScript File Check:</strong> <span id="jsFile">Checking...</span>
+        </div>
+
+        <div id="urlConstructorTest" class="status info">
+            <strong>URL Constructor Test:</strong> <span id="urlTest">Testing...</span>
+        </div>
+
+        <h2>🚀 Test Links</h2>
+        
+        <div>
+            <a href="https://app.mailsfinder.com" class="button" target="_blank">
+                ❌ app.mailsfinder.com (Broken DNS)
+            </a>
+            
+            <a href="https://email-finder-frontend-dashboard-bvuiir28f.vercel.app" class="button" target="_blank">
+                ✅ Direct Vercel URL (Fixed)
+            </a>
+        </div>
+
+        <h2>📋 Instructions</h2>
+        
+        <ol>
+            <li><strong>Click "Direct Vercel URL"</strong> - This should work without errors</li>
+            <li><strong>Login through mailsfinder.com</strong> and verify dashboard loads</li>
+            <li><strong>Check console</strong> - should see <code>index-BdmbgWGj.js</code> (not <code>index-Blr0hfjt.js</code>)</li>
+            <li><strong>Update DNS</strong> as described in DNS_UPDATE_REQUIRED.md</li>
+        </ol>
+
+        <div class="info">
+            <strong>Expected:</strong> Direct Vercel URL works ✅, app.mailsfinder.com fails ❌ until DNS is updated
+        </div>
+
+        <h2>🔧 DNS Update Required</h2>
+        
+        <div class="code">
+            <strong>Current DNS (broken):</strong><br>
+            app.mailsfinder.com → [OLD_VERCEL_URL]<br><br>
+            
+            <strong>Required DNS (fixed):</strong><br>
+            app.mailsfinder.com → email-finder-frontend-dashboard-bvuiir28f.vercel.app
+        </div>
+    </div>
+
+    <script>
+        // Display current URL
+        document.getElementById('currentUrl').textContent = window.location.href;
+        
+        // Check for JavaScript files in the page
+        function checkJavaScriptFiles() {
+            const scripts = document.querySelectorAll('script[src]');
+            const jsFiles = Array.from(scripts).map(script => {
+                const src = script.src;
+                const filename = src.split('/').pop();
+                return filename;
+            }).filter(filename => filename.includes('index-'));
+            
+            const jsFileElement = document.getElementById('jsFile');
+            if (jsFiles.length > 0) {
+                const mainFile = jsFiles[0];
+                if (mainFile.includes('Blr0hfjt')) {
+                    jsFileElement.innerHTML = `<span style="color: #c33;">${mainFile} (BROKEN - OLD VERSION)</span>`;
+                    document.getElementById('jsFileTest').className = 'status error';
+                } else if (mainFile.includes('BdmbgWGj')) {
+                    jsFileElement.innerHTML = `<span style="color: #3c3;">${mainFile} (FIXED - NEW VERSION)</span>`;
+                    document.getElementById('jsFileTest').className = 'status success';
+                } else {
+                    jsFileElement.innerHTML = `${mainFile} (Unknown version)`;
+                }
+            } else {
+                jsFileElement.textContent = 'No index files found';
+            }
+        }
+        
+        // Test URL constructor
+        function testUrlConstructor() {
+            const urlTestElement = document.getElementById('urlTest');
+            const urlTestContainer = document.getElementById('urlConstructorTest');
+            
+            try {
+                // Test various URL constructions that might fail
+                new URL('http://173.249.7.231:8500');
+                new URL('https://wbcfsffssphgvpnbrvve.supabase.co');
+                new URL(window.location.origin);
+                
+                urlTestElement.innerHTML = '<span style="color: #3c3;">✅ All URL tests passed</span>';
+                urlTestContainer.className = 'status success';
+            } catch (error) {
+                urlTestElement.innerHTML = `<span style="color: #c33;">❌ URL construction failed: ${error.message}</span>`;
+                urlTestContainer.className = 'status error';
+            }
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(checkJavaScriptFiles, 1000); // Wait for scripts to load
+            testUrlConstructor();
+        });
+        
+        // Monitor for URL construction errors
+        window.addEventListener('error', (event) => {
+            if (event.message && event.message.includes('Invalid URL')) {
+                const urlTestElement = document.getElementById('urlTest');
+                const urlTestContainer = document.getElementById('urlConstructorTest');
+                urlTestElement.innerHTML = `<span style="color: #c33;">❌ URL Error Detected: ${event.message}</span>`;
+                urlTestContainer.className = 'status error';
+            }
+        });
+    </script>
+</body>
+</html>
