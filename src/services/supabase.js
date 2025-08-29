@@ -52,10 +52,18 @@ export const authService = {
   // Get current user session
   async getCurrentUser() {
     try {
+      // Avoid noisy errors during initial load by checking session first
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return null
+
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error) throw error
       return user
     } catch (error) {
+      // Gracefully handle the common "Auth session missing" case
+      if (error?.name === 'AuthSessionMissingError' || /Auth session missing/i.test(error?.message || '')) {
+        return null
+      }
       console.error('Error getting current user:', error)
       return null
     }
@@ -75,7 +83,7 @@ export const authService = {
         const { data, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_id', userId)
+          .eq('id', userId)
           .single()
         
         if (profileError) throw profileError
