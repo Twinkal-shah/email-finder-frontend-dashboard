@@ -1,14 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-
-// Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Use the shared Supabase client so it carries the authenticated session
+import { supabase } from '../services/supabase.js'
 
 /**
  * Get user profile with credits and subscription info
@@ -102,67 +93,57 @@ export async function checkCredits(userId, creditsNeeded, creditType = 'find') {
 }
 
 /**
- * Deduct credits from user account
+ * Deduct credits for an operation
  */
 export async function deductCredits(userId, creditsToDeduct, creditType = 'find') {
   try {
-    // First check if user has enough credits
-    const creditCheck = await checkCredits(userId, creditsToDeduct, creditType)
+    const column = creditType === 'find' ? 'credits_find' : 'credits_verify'
     
-    if (!creditCheck.hasCredits) {
-      throw new Error(`Insufficient ${creditType} credits. Available: ${creditCheck.availableCredits}, Needed: ${creditsToDeduct}`)
-    }
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
+      .select(column)
+      .eq('id', userId)
+      .single()
     
-    // Deduct credits
-    const updateField = creditType === 'find' ? 'credits_find' : 'credits_verify'
+    if (fetchError) throw fetchError
+    const current = profile?.[column] ?? 0
+    const newValue = Math.max(0, current - creditsToDeduct)
+    
     const { data, error } = await supabase
       .from('profiles')
-      .update({
-        [updateField]: creditCheck.availableCredits - creditsToDeduct
-      })
+      .update({ [column]: newValue })
       .eq('id', userId)
       .select()
       .single()
     
-    if (error) {
-      console.error('Error deducting credits:', error)
-      throw error
-    }
+    if (error) throw error
     
     return {
-      success: true,
-      remainingCredits: data[updateField],
-      deductedCredits: creditsToDeduct,
+      remainingCredits: data?.[column] ?? newValue,
+      deductedCredits: Math.min(current, creditsToDeduct),
       creditType
     }
   } catch (error) {
-    console.error('Error in deductCredits:', error)
+    console.error('Error deducting credits:', error)
     throw error
   }
 }
 
 /**
- * Create or update user profile
+ * Upsert user profile
  */
 export async function upsertUserProfile(userData) {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .upsert(userData, {
-        onConflict: 'email',
-        ignoreDuplicates: false
-      })
+      .upsert(userData)
       .select()
       .single()
     
-    if (error) {
-      console.error('Error upserting user profile:', error)
-      throw error
-    }
-    
+    if (error) throw error
     return data
   } catch (error) {
-    console.error('Error in upsertUserProfile:', error)
+    console.error('Error upserting user profile:', error)
     throw error
   }
 }
@@ -178,43 +159,34 @@ export async function getUserByEmail(email) {
       .eq('email', email)
       .single()
     
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error fetching user by email:', error)
-      throw error
-    }
-    
+    if (error) throw error
     return data
   } catch (error) {
-    console.error('Error in getUserByEmail:', error)
+    console.error('Error fetching user by email:', error)
     throw error
   }
 }
 
 /**
- * Initialize free trial for new user
+ * Initialize free trial for user if needed
  */
 export async function initializeFreeTrial(email) {
   try {
-    // Check if user already exists
-    const existingUser = await getUserByEmail(email)
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        plan: 'free',
+        credits: 25,
+        credits_find: 25,
+        credits_verify: 25,
+        plan_expiry: new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()
+      })
+      .eq('email', email)
+      .select()
+      .single()
     
-    if (existingUser) {
-      return existingUser
-    }
-    
-    // Create new user with free trial credits
-    const freeTrialExpiry = new Date()
-    freeTrialExpiry.setDate(freeTrialExpiry.getDate() + 3) // 3 days trial
-    
-    const userData = {
-      email,
-      plan: 'free',
-      credits_find: 25,
-      credits_verify: 25,
-      plan_expiry: freeTrialExpiry.toISOString()
-    }
-    
-    return await upsertUserProfile(userData)
+    if (error) throw error
+    return data
   } catch (error) {
     console.error('Error initializing free trial:', error)
     throw error

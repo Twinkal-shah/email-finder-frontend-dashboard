@@ -1,12 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/auth.jsx'
 import { getUserProfile, deductCredits } from '../api/user.js'
-import { createClient } from '@supabase/supabase-js'
-
-// Initialize Supabase client for real-time subscriptions
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+import { supabase } from '../services/supabase.js'
 
 /**
  * Real-time credits hook that provides live credit data from Supabase
@@ -103,8 +98,7 @@ export function useRealTimeCredits() {
       const creditType = operation.includes('verify') ? 'verify' : 'find'
       const result = await deductCredits(user.id, quantity, creditType)
       
-      // The real-time subscription will automatically update the UI
-      // but we can also update optimistically for better UX
+      // Optimistic update
       setCreditData(prev => ({
         ...prev,
         [creditType]: Math.max(0, prev[creditType] - quantity)

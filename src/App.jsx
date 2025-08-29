@@ -79,6 +79,8 @@ function Topbar() {
     logout()
   }
 
+  const displayName = fullName && fullName.trim() ? fullName : (user?.email || 'Unknown User')
+
   return (
     <header className="h-14 border-b border-border px-4 flex items-center justify-between bg-card">
       <div className="font-semibold text-foreground">Email Finder Dashboard</div>
@@ -104,7 +106,7 @@ function Topbar() {
         )}
         {isAuthenticated ? (
           <div className="flex items-center gap-2">
-            <span className="text-foreground font-medium">{fullName || user?.email || 'Unknown User'}</span>
+            <span className="text-foreground font-medium">{displayName}</span>
             <button 
               onClick={handleLogout}
               className="px-3 py-1.5 rounded-md border border-border hover:bg-accent hover:text-accent-foreground transition-colors"
