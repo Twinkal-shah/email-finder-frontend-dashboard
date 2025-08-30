@@ -13,7 +13,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,  // Enable auto-refresh for better session management
     persistSession: true,    // Enable session persistence for cookie support
-    detectSessionInUrl: false // Keep URL detection disabled for dashboard
+    detectSessionInUrl: true // Enable URL detection for production authentication flow
   }
 })
 
