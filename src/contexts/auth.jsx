@@ -503,6 +503,9 @@ export function AuthProvider({ children }) {
         } else if (profileResult.error) {
           setProfileError(profileResult.error.message)
         }
+        
+        // Set loading to false after successful authentication
+        setIsLoading(false)
       } else if (event === 'SIGNED_OUT') {
         // Handle sign out
         await cookieAuth.handleLogout()
@@ -511,6 +514,7 @@ export function AuthProvider({ children }) {
         setAuthError(null)
         setProfileError(null)
         profilesAccessor.clearCache()
+        setIsLoading(false)
       } else if (event === 'TOKEN_REFRESHED' && session) {
         // Handle token refresh
         await cookieAuth.setAuthCookie(session)
