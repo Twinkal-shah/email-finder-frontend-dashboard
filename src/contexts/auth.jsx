@@ -194,6 +194,26 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
         clearAuthTimeout()
       }
 
+      // Optimistically set user and tokens immediately for instant UI
+      try {
+        if (event.data.user) {
+          const optimisticUser = {
+            ...event.data.user,
+            name: event.data.user.name || event.data.user.email?.split('@')[0] || 'User'
+          }
+          setUser(optimisticUser)
+        }
+        if (event.data.tokens) {
+          storeTokens(event.data.tokens)
+          setTokens(event.data.tokens)
+        }
+      } finally {
+        // Stop loading immediately after receiving auth data to avoid flicker
+        if (setIsLoading) {
+          setIsLoading(false)
+        }
+      }
+
       // If tokens are provided, immediately set the Supabase session so subsequent
       // requests include the Authorization header (fixes 406 from RLS and session-missing)
       if (event.data.tokens && event.data.tokens.access_token) {
@@ -207,23 +227,39 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
         }
       }
       
-      if (event.data.user) {
-        setUser(event.data.user)
-      }
-      if (event.data.tokens) {
-        storeTokens(event.data.tokens)
-        setTokens(event.data.tokens)
-      }
-      
-      // Stop loading since we received authentication data (or lack thereof)
-      if (setIsLoading) {
-        setIsLoading(false)
-      }
-      
-      // Clean up iframe after receiving response
-      if (authIframe && authIframe.parentNode) {
-        authIframe.parentNode.removeChild(authIframe)
-        authIframe = null
+      try {
+        // Always attempt to enrich user with latest profile from DB
+        let enrichedUser = event.data.user || null
+        if (event.data.user?.id) {
+          const userProfile = await authService.getUserProfile(event.data.user.id)
+          if (userProfile) {
+            enrichedUser = {
+              id: event.data.user.id,
+              email: userProfile.email || event.data.user.email,
+              name: userProfile.full_name || userProfile.display_name || userProfile.name || event.data.user.name || event.data.user.email?.split('@')[0] || 'User',
+              phone: userProfile.phone,
+              created_at: userProfile.created_at || event.data.user.created_at,
+              last_sign_in_at: userProfile.last_sign_in_at || event.data.user.last_sign_in_at,
+              ...userProfile
+            }
+          } else if (enrichedUser) {
+            // Ensure we at least have a sensible name
+            enrichedUser = {
+              ...enrichedUser,
+              name: enrichedUser.name || enrichedUser.email?.split('@')[0] || 'User'
+            }
+          }
+        }
+
+        if (enrichedUser) {
+          setUser(enrichedUser)
+        }
+      } finally {
+        // Clean up iframe after receiving response
+        if (authIframe && authIframe.parentNode) {
+          authIframe.parentNode.removeChild(authIframe)
+          authIframe = null
+        }
       }
     }
   }
@@ -231,7 +267,7 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
   window.addEventListener('message', handleMessage)
   
   // Create iframe to communicate with auth bridge
-  const createAuthIframe = () => {
+  const createAuthIframe = (useNonWww = false) => {
     try {
       // Remove existing iframe if any
       if (authIframe && authIframe.parentNode) {
@@ -240,7 +276,9 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
       
       // Create new iframe
       authIframe = document.createElement('iframe')
-      authIframe.src = 'https://www.mailsfinder.com/auth-bridge.html'
+      authIframe.src = useNonWww
+        ? 'https://mailsfinder.com/auth-bridge.html'
+        : 'https://www.mailsfinder.com/auth-bridge.html'
       authIframe.style.display = 'none'
       authIframe.style.width = '0'
       authIframe.style.height = '0'
@@ -255,7 +293,7 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
         try {
           authIframe.contentWindow.postMessage(
             { type: 'REQUEST_AUTH_DATA' }, 
-            'https://www.mailsfinder.com'
+            useNonWww ? 'https://mailsfinder.com' : 'https://www.mailsfinder.com'
           )
         } catch (error) {
           console.log('Error sending message to auth bridge:', error)
@@ -278,9 +316,9 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
     }
   }
   
-  // Create iframe immediately and after a short delay as fallback
-  createAuthIframe()
-  const timeoutId = setTimeout(createAuthIframe, 1000)
+  // Create iframe immediately and after a short delay as fallback (non-www)
+  createAuthIframe(false)
+  const timeoutId = setTimeout(() => createAuthIframe(true), 1000)
   
   return () => {
     window.removeEventListener('message', handleMessage)
@@ -426,7 +464,7 @@ export function AuthProvider({ children }) {
                 setUser({
                   id: currentUser.id,
                   email: userProfile.email || currentUser.email,
-                  name: userProfile.user_metadata?.display_name || userProfile.user_metadata?.name || userProfile.email?.split('@')[0] || 'User',
+                  name: userProfile.full_name || userProfile.display_name || userProfile.name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
                   phone: userProfile.phone,
                   created_at: userProfile.created_at,
                   last_sign_in_at: userProfile.last_sign_in_at,
@@ -498,7 +536,7 @@ export function AuthProvider({ children }) {
           setUser({
             id: session.user.id,
             email: userProfile.email || session.user.email,
-            name: userProfile.user_metadata?.display_name || userProfile.user_metadata?.name || userProfile.email?.split('@')[0] || 'User',
+            name: userProfile.full_name || userProfile.display_name || userProfile.name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
             phone: userProfile.phone,
             created_at: userProfile.created_at,
             last_sign_in_at: userProfile.last_sign_in_at,
