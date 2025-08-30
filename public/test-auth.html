@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentication Flow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Authentication Flow Test</h1>
+        <p>This page simulates the authentication flow from mailsfinder.com to app.mailsfinder.com</p>
+        
+        <div>
+            <button class="button" onclick="simulateLogin()">🚀 Simulate Login from mailsfinder.com</button>
+            <button class="button" onclick="testCookieAuth()">🍪 Test Cookie Authentication</button>
+            <button class="button" onclick="clearAuth()">🗑️ Clear Authentication</button>
+            <button class="button" onclick="clearLogs()">📝 Clear Logs</button>
+        </div>
+        
+        <div id="logs" class="log">Ready to test authentication flow...
+</div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logs.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = 'Logs cleared...\n';
+        }
+
+        function simulateLogin() {
+            log('🚀 Simulating login from mailsfinder.com...', 'info');
+            
+            // Simulate the URL parameters that would be sent from mailsfinder.com
+            const mockAuthData = {
+                access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjk5OTk5OTk5OTl9.Lmg7VJJaHR3blWpq5SIkODStaMeHUbvYZNL_lWOOYzI',
+                refresh_token: 'mock_refresh_token_12345',
+                user_id: 'test-user-123',
+                email: 'test@example.com',
+                name: 'Test User',
+                expires_at: Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
+            };
+            
+            // Create URL with auth parameters
+            const params = new URLSearchParams(mockAuthData);
+            const newUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+            
+            log(`📍 Redirecting to: ${newUrl}`, 'info');
+            
+            // Redirect to simulate the flow
+            window.location.href = newUrl;
+        }
+
+        async function testCookieAuth() {
+            log('🍪 Testing cookie authentication...', 'info');
+            
+            try {
+                // Check if we have auth cookies
+                const cookies = document.cookie;
+                log(`Current cookies: ${cookies || 'None'}`, 'info');
+                
+                // Try to read auth cookie specifically
+                const authCookie = cookies.split(';').find(cookie => 
+                    cookie.trim().startsWith('supabase-auth-token=')
+                );
+                
+                if (authCookie) {
+                    log('✅ Auth cookie found!', 'success');
+                    try {
+                        const cookieValue = authCookie.split('=')[1];
+                        const cookieData = JSON.parse(atob(cookieValue));
+                        log(`Cookie data: ${JSON.stringify(cookieData, null, 2)}`, 'info');
+                    } catch (e) {
+                        log(`❌ Error parsing cookie: ${e.message}`, 'error');
+                    }
+                } else {
+                    log('❌ No auth cookie found', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error testing cookie auth: ${error.message}`, 'error');
+            }
+        }
+
+        function clearAuth() {
+            log('🗑️ Clearing authentication...', 'info');
+            
+            // Clear cookies
+            document.cookie = 'supabase-auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            
+            // Clear localStorage
+            localStorage.clear();
+            
+            // Clear URL parameters
+            const url = new URL(window.location);
+            url.search = '';
+            window.history.replaceState({}, document.title, url.toString());
+            
+            log('✅ Authentication cleared', 'success');
+        }
+
+        // Check for URL parameters on page load
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.has('access_token')) {
+                log('🔍 Found authentication parameters in URL!', 'success');
+                
+                const authData = {
+                    access_token: urlParams.get('access_token'),
+                    refresh_token: urlParams.get('refresh_token'),
+                    user_id: urlParams.get('user_id'),
+                    email: urlParams.get('email'),
+                    name: urlParams.get('name'),
+                    expires_at: urlParams.get('expires_at')
+                };
+                
+                log(`Auth data: ${JSON.stringify(authData, null, 2)}`, 'info');
+                
+                // Test setting a cookie
+                try {
+                    const cookieData = {
+                        access_token: authData.access_token,
+                        refresh_token: authData.refresh_token,
+                        expires_at: authData.expires_at,
+                        user: {
+                            id: authData.user_id,
+                            email: authData.email,
+                            user_metadata: {
+                                full_name: authData.name
+                            }
+                        }
+                    };
+                    
+                    const cookieValue = btoa(JSON.stringify(cookieData));
+                    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+                    
+                    // Set cookie without domain for localhost
+                    document.cookie = `supabase-auth-token=${cookieValue}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+                    
+                    log('✅ Auth cookie set successfully!', 'success');
+                    
+                    // Clean URL
+                    const url = new URL(window.location);
+                    url.search = '';
+                    window.history.replaceState({}, document.title, url.toString());
+                    
+                    log('✅ URL parameters cleaned', 'success');
+                    
+                } catch (error) {
+                    log(`❌ Error setting cookie: ${error.message}`, 'error');
+                }
+            } else {
+                log('ℹ️ No authentication parameters found in URL', 'info');
+            }
+        });
+    </script>
+</body>
+</html>
