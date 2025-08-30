@@ -132,17 +132,37 @@
                 const userData = {
                     id: user.id,
                     email: user.email,
-                    name: userProfile?.name || 
-                           userProfile?.display_name || 
-                           user.user_metadata?.name || 
-                           user.user_metadata?.display_name || 
-                           user.email?.split('@')[0] || 
-                           'User',
+                    // Add debug logging for name fields
+                    name: (() => {
+                        console.log('Profile data:', {
+                            full_name: userProfile?.full_name,
+                            name: userProfile?.name,
+                            display_name: userProfile?.display_name,
+                            metadata_full_name: user.user_metadata?.full_name,
+                            metadata_name: user.user_metadata?.name,
+                            metadata_display_name: user.user_metadata?.display_name
+                        });
+                        
+                        // Prioritize profile fields first, then metadata fields
+                        return userProfile?.full_name ||
+                               userProfile?.name ||
+                               userProfile?.display_name ||
+                               user.user_metadata?.full_name ||
+                               user.user_metadata?.name ||
+                               user.user_metadata?.display_name ||
+                               user.email?.split('@')[0] ||
+                               'User';
+                    })(),
                     phone: userProfile?.phone || user.phone,
                     created_at: user.created_at,
                     last_sign_in_at: user.last_sign_in_at,
-                    ...userProfile
+                    // Include all profile data
+                    ...(userProfile || {}),
+                    // Include user metadata
+                    ...user.user_metadata
                 };
+                
+                console.log('Final prepared user data:', userData);
                 
                 // Prepare token data
                 const tokenData = {
@@ -257,9 +277,13 @@
                 const userData = {
                     id: session.user.id,
                     email: session.user.email,
-                    name: userProfile?.name || 
+                    name: userProfile?.full_name || 
+                           userProfile?.name || 
                            userProfile?.display_name || 
+                           session.user.user_metadata?.full_name ||
                            session.user.user_metadata?.name || 
+                           session.user.user_metadata?.display_name || 
+                           session.user.email?.split('@')[0] || 
                            'User',
                     phone: userProfile?.phone || session.user.phone,
                     created_at: session.user.created_at,

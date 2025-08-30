@@ -42,16 +42,34 @@ export const authService = {
   // Get user profile data from profiles table (RLS-protected)
   async getUserProfile(userId) {
     try {
+      console.log('Fetching profile for user:', userId)
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          id,
+          email,
+          full_name,
+          name,
+          display_name,
+          phone,
+          created_at,
+          last_sign_in_at,
+          updated_at
+        `)
         .eq('id', userId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Database error fetching profile:', error.message)
+        console.error('Error details:', error)
+        throw error
+      }
+      
+      console.log('Retrieved profile data:', data)
       return data
     } catch (error) {
-      console.error('Error fetching user profile from profiles:', error)
+      console.error('Error fetching user profile:', error.message)
+      console.error('Stack trace:', error.stack)
       return null
     }
   },

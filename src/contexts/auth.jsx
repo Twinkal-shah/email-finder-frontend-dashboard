@@ -187,20 +187,34 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
     }
     
     if (event.data && event.data.type === 'USER_AUTH') {
-      console.log('Received cross-domain auth data:', event.data)
+      console.log('Received cross-domain auth data:', {
+        user_id: event.data.user?.id,
+        email: event.data.user?.email,
+        name_fields: {
+          name: event.data.user?.name,
+          full_name: event.data.user?.full_name,
+          display_name: event.data.user?.display_name
+        }
+      })
       
       // Clear the authentication timeout since we received a response
       if (clearAuthTimeout) {
         clearAuthTimeout()
       }
-
+      
       // Optimistically set user and tokens immediately for instant UI
       try {
         if (event.data.user) {
           const optimisticUser = {
             ...event.data.user,
-            name: event.data.user.name || event.data.user.email?.split('@')[0] || 'User'
+            // Keep the existing name if it's valid
+            name: event.data.user.name || 
+                  event.data.user.full_name ||
+                  event.data.user.display_name ||
+                  event.data.user.email?.split('@')[0] ||
+                  'User'
           }
+          console.log('Setting optimistic user:', optimisticUser)
           setUser(optimisticUser)
         }
         if (event.data.tokens) {
@@ -208,10 +222,8 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
           setTokens(event.data.tokens)
         }
       } finally {
-        // Stop loading immediately after receiving auth data to avoid flicker
-        if (setIsLoading) {
-          setIsLoading(false)
-        }
+        // Stop loading immediately after receiving auth data
+        setIsLoading(false)
       }
 
       // If tokens are provided, immediately set the Supabase session so subsequent
@@ -236,23 +248,35 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
             enrichedUser = {
               id: event.data.user.id,
               email: userProfile.email || event.data.user.email,
-              name: userProfile.full_name || userProfile.display_name || userProfile.name || event.data.user.name || event.data.user.email?.split('@')[0] || 'User',
+              // Prioritize full_name from profile
+              name: userProfile.full_name || 
+                    userProfile.name || 
+                    userProfile.display_name || 
+                    event.data.user.name || 
+                    event.data.user.email?.split('@')[0] || 
+                    'User',
               phone: userProfile.phone,
               created_at: userProfile.created_at || event.data.user.created_at,
               last_sign_in_at: userProfile.last_sign_in_at || event.data.user.last_sign_in_at,
               ...userProfile
             }
-          } else if (enrichedUser) {
-            // Ensure we at least have a sensible name
+          } else {
+            // No profile found, ensure we have basic user data
             enrichedUser = {
-              ...enrichedUser,
-              name: enrichedUser.name || enrichedUser.email?.split('@')[0] || 'User'
+              ...event.data.user,
+              name: event.data.user.name || 
+                    event.data.user.email?.split('@')[0] || 
+                    'User'
             }
           }
-        }
-
-        if (enrichedUser) {
+          // Update user state with enriched data
           setUser(enrichedUser)
+        }
+      } catch (error) {
+        console.error('Error enriching user data:', error)
+        // Ensure loading is cleared even if profile enrichment fails
+        if (setIsLoading) {
+          setIsLoading(false)
         }
       } finally {
         // Clean up iframe after receiving response
