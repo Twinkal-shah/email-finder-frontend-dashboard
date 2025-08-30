@@ -73,7 +73,7 @@ function Sidebar() {
 
 function Topbar() {
   const { user, isAuthenticated, logout } = useAuth()
-  const { credits, plan, fullName, loading } = useRealTimeCredits()
+  const { find, verify, plan, fullName, loading, error } = useRealTimeCredits()
   
   const handleLogout = () => {
     logout()
@@ -93,16 +93,19 @@ function Topbar() {
         {isAuthenticated && (
           <div className="hidden sm:flex items-center gap-3">
             <span className="text-green-600 font-medium">
-              Find: {credits?.find?.toLocaleString() || '0'}
+              Find: {find?.toLocaleString() || '0'}
             </span>
             <span className="text-blue-600 font-medium">
-              Verify: {credits?.verify?.toLocaleString() || '0'}
+              Verify: {verify?.toLocaleString() || '0'}
             </span>
             <span className="text-purple-600 font-medium capitalize">
               {formatPlan(plan) || 'Free'}
             </span>
             {loading && (
               <span className="text-xs text-yellow-600">Loading...</span>
+            )}
+            {error && (
+              <span className="text-xs text-red-600" title={error}>⚠️</span>
             )}
           </div>
         )}

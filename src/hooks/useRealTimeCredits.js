@@ -24,14 +24,15 @@ export function useRealTimeCredits() {
   const fetchCreditData = useCallback(async () => {
     console.log('fetchCreditData called - isAuthenticated:', isAuthenticated, 'user?.id:', user?.id)
     
-    // Temporarily use test user ID to test profile fetching
-    const testUserId = 'test-user-123'
-    console.log('Using test user ID for debugging:', testUserId)
+    if (!isAuthenticated || !user?.id) {
+      console.log('Skipping fetchCreditData - not authenticated or no user ID')
+      return
+    }
     
     try {
-      console.log('Fetching profile for test user ID:', testUserId)
+      console.log('Fetching profile for user ID:', user.id)
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
-      const profile = await getUserProfile(testUserId)
+      const profile = await getUserProfile(user.id)
       console.log('Profile received:', profile)
 
       if (profile) {
@@ -144,14 +145,18 @@ export function useRealTimeCredits() {
   }, [fetchCreditData])
 
   return {
-    // Credit data
+    // Credit data (direct access for easier consumption)
+    find: creditData.find,
+    verify: creditData.verify,
+    plan: creditData.plan,
+    fullName: creditData.fullName,
+    planExpiry: creditData.planExpiry,
+
+    // Legacy credits object for backward compatibility
     credits: {
       find: creditData.find,
       verify: creditData.verify
     },
-    plan: creditData.plan,
-    fullName: creditData.fullName,
-    planExpiry: creditData.planExpiry,
 
     // State
     loading: creditData.loading,
