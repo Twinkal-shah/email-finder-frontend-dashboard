@@ -630,6 +630,9 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(TOKEN_STORAGE_KEY)
         localStorage.removeItem(FIND_RESULTS_STORAGE_KEY) // Clear search results
         clearSessionCookies() // Clear cross-domain cookies on logout
+        
+        // Redirect to login page after successful logout
+        window.location.href = `https://www.mailsfinder.com/login.html?return_url=${encodeURIComponent(window.location.origin)}`
       } catch (error) {
         console.error('Logout error:', error)
         setUser(null)
@@ -638,6 +641,9 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(TOKEN_STORAGE_KEY)
         localStorage.removeItem(FIND_RESULTS_STORAGE_KEY) // Clear search results even on error
         clearSessionCookies() // Clear cross-domain cookies even on error
+        
+        // Redirect to login page even on error
+        window.location.href = `https://www.mailsfinder.com/login.html?return_url=${encodeURIComponent(window.location.origin)}`
       }
     },
     clearError: () => setAuthError(null)
