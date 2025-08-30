@@ -46,15 +46,18 @@ export const authService = {
       const { data, error } = await supabase
         .from('profiles')
         .select(`
-          id,
-          email,
-          full_name,
-          name,
-          display_name,
-          phone,
-          created_at,
-          last_sign_in_at,
-          updated_at
+           id,
+        email,
+        full_name,
+        display_name,
+        phone,
+        company,
+        plan,
+        credits,
+        credits_find,
+        credits_verify,
+        created_at,
+        updated_at
         `)
         .eq('id', userId)
         .single()
