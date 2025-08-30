@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { authService, dbService } from '../services/supabase'
 import { getSessionFromCookies, clearSessionCookies, isAuthenticatedFromCookies } from '../utils/cookies'
+import cookieAuth from '../services/cookieAuth'
+import profilesAccessor from '../services/profilesAccessor'
 
 const STORAGE_KEY = 'auth_user'
 const TOKEN_STORAGE_KEY = 'auth_tokens'
@@ -358,188 +360,119 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [tokens, setTokens] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState(null)
+  const [profileError, setProfileError] = useState(null)
 
   // Initialize authentication on mount
   useEffect(() => {
     let cleanup = null
     let authTimeout = null
+    let profileUnsubscribe = null
     
     const initializeAuth = async () => {
       try {
         setAuthError(null)
+        setProfileError(null)
         
-        // 1. Extract URL parameters when the page loads
+        // 1. Check URL parameters for authentication (legacy support)
         const urlParams = getUrlParams()
         console.log('URL Params:', urlParams)
         
         if (urlParams.access_token || urlParams.token) {
-          console.log('Found token, attempting validation...')
-          // 2. Validate the access token with Supabase
-          const tokenToValidate = urlParams.access_token || urlParams.token
-          console.log('Token to validate:', tokenToValidate.substring(0, 50) + '...')
-          const validatedUser = await validateAccessToken(tokenToValidate, urlParams.refresh_token)
-          console.log('Validation result:', validatedUser)
+          console.log('Found token in URL, handling authentication...')
           
-          if (validatedUser) {
-            console.log('User validated successfully:', validatedUser.email)
-            // 3. Initialize the user session in your dashboard
-            const userData = {
-              id: validatedUser.id,
-              name: urlParams.name || validatedUser.user_metadata?.name || validatedUser.email?.split('@')[0] || 'User',
-              email: urlParams.email || validatedUser.email,
-              user_id: urlParams.user_id || validatedUser.id
-            }
-            setUser(userData)
-            
-            // 4. Store tokens for API calls
-            if (urlParams.access_token) {
-              const tokenData = {
-                access_token: urlParams.access_token,
-                refresh_token: urlParams.refresh_token,
-                expires_at: urlParams.expires_at
+          // Create session object from URL parameters
+          const session = {
+            access_token: urlParams.access_token || urlParams.token,
+            refresh_token: urlParams.refresh_token,
+            expires_at: urlParams.expires_at ? parseInt(urlParams.expires_at) : null,
+            user: {
+              id: urlParams.user_id,
+              email: urlParams.email,
+              user_metadata: {
+                full_name: urlParams.name
               }
-              storeTokens(tokenData)
-              setTokens(tokenData)
             }
-            
-            // Clean URL parameters after extracting user data
+          }
+          
+          // Handle authentication success with cookie storage
+          const success = await cookieAuth.handleAuthSuccess(session)
+          
+          if (success) {
+            console.log('Authentication handled successfully')
+            // Clean URL parameters after successful authentication
             cleanUrlParams()
             
-            // Try to fetch additional user data from database
-            try {
-              const dbUser = await dbService.getUserByEmail(userData.email)
-              if (dbUser) {
-                setUser({
-                  ...userData,
-                  ...dbUser,
-                  name: dbUser.name || userData.name
-                })
+            // Get the authenticated user
+            const authenticatedUser = await cookieAuth.getCurrentUser()
+            if (authenticatedUser) {
+              setUser(authenticatedUser)
+              
+              // Fetch profile data
+              const profileResult = await profilesAccessor.getProfile()
+              if (profileResult.data) {
+                setProfile(profileResult.data)
+              } else if (profileResult.error) {
+                setProfileError(profileResult.error.message)
               }
-            } catch (error) {
-              console.error('Error fetching user from database:', error)
             }
           } else {
-            // Token validation failed
-            setAuthError('Invalid or expired authentication token')
+            setAuthError('Failed to authenticate with provided credentials')
             cleanUrlParams()
           }
-        } else if (urlParams.name || urlParams.email) {
-          // Fallback for legacy URL parameter flow
-          const userData = {
-            name: urlParams.name || 'User',
-            email: urlParams.email || '',
-            user_id: urlParams.user_id || ''
-          }
-          setUser(userData)
-          cleanUrlParams()
         } else {
-          // Create function to clear auth timeout
-          const clearAuthTimeout = () => {
-            if (authTimeout) {
-              clearTimeout(authTimeout)
-              authTimeout = null
-            }
-          }
+          // 2. Try to initialize from existing cookie session
+          console.log('Checking for existing authentication...')
           
-          // First, check for authentication in cross-domain cookies
-          console.log('Checking for authentication in cookies...')
-          const cookieSession = getSessionFromCookies()
+          const isAuth = await cookieAuth.isAuthenticated()
           
-          if (cookieSession && cookieSession.access_token) {
-            console.log('Found session in cookies, validating...')
-            try {
-              const validatedUser = await validateAccessToken(cookieSession.access_token, cookieSession.refresh_token)
-              if (validatedUser) {
-                console.log('Cookie session validated successfully')
-                setUser(cookieSession.user || {
-                  id: validatedUser.id,
-                  email: validatedUser.email,
-                  name: validatedUser.user_metadata?.name || validatedUser.email?.split('@')[0] || 'User'
+          if (isAuth) {
+            console.log('User is authenticated, getting user data...')
+            
+            const authenticatedUser = await cookieAuth.getCurrentUser()
+            if (authenticatedUser) {
+              setUser(authenticatedUser)
+              
+              // Fetch profile data
+              const profileResult = await profilesAccessor.getProfile()
+              if (profileResult.data) {
+                setProfile(profileResult.data)
+                
+                // Subscribe to profile changes
+                profileUnsubscribe = profilesAccessor.subscribe((updatedProfile) => {
+                  console.log('Profile updated via subscription:', updatedProfile)
+                  setProfile(updatedProfile)
                 })
-                setTokens({
-                  access_token: cookieSession.access_token,
-                  refresh_token: cookieSession.refresh_token,
-                  expires_at: cookieSession.expires_at
-                })
-                setIsLoading(false)
-                return // Successfully authenticated via cookies
-              } else {
-                console.log('Cookie session validation failed, clearing cookies')
-                clearSessionCookies()
-              }
-            } catch (error) {
-              console.error('Error validating cookie session:', error)
-              clearSessionCookies()
-            }
-          }
-          
-          // Set up cross-domain message listener as fallback
-          cleanup = setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout)
-          
-          // Check for existing Supabase session
-          try {
-            const currentUser = await authService.getCurrentUser()
-            if (currentUser) {
-              const userProfile = await authService.getUserProfile(currentUser.id)
-              if (userProfile) {
-                setUser({
-                  id: currentUser.id,
-                  email: userProfile.email || currentUser.email,
-                  name: userProfile.full_name || userProfile.display_name || userProfile.name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
-                  phone: userProfile.phone,
-                  created_at: userProfile.created_at,
-                  last_sign_in_at: userProfile.last_sign_in_at,
-                  ...userProfile
-                })
-              } else {
-                setUser({
-                  id: currentUser.id,
-                  email: currentUser.email,
-                  name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User'
-                })
+              } else if (profileResult.error) {
+                console.error('Error fetching profile:', profileResult.error)
+                setProfileError(profileResult.error.message)
               }
             } else {
-              // Check for stored tokens
-              const storedTokens = getStoredTokens()
-              if (storedTokens) {
-                const validatedUser = await validateAccessToken(storedTokens.access_token)
-                if (validatedUser) {
-                  setUser({
-                    id: validatedUser.id,
-                    email: validatedUser.email,
-                    name: validatedUser.user_metadata?.name || validatedUser.email?.split('@')[0] || 'User'
-                  })
-                  setTokens(storedTokens)
-                } else {
-                  // Stored tokens are invalid
-                  localStorage.removeItem(TOKEN_STORAGE_KEY)
-                }
-              } else {
-                // Check localStorage as final fallback
-                const raw = localStorage.getItem(STORAGE_KEY)
-                if (raw) {
-                  const parsed = JSON.parse(raw)
-                  if (parsed && typeof parsed === 'object') {
-                    setUser(parsed)
-                  }
-                }
-                
-                // If no local authentication found, wait for cross-domain response
-                // Set a timeout to stop loading if no response is received
-                authTimeout = setTimeout(() => {
-                  console.log('Cross-domain authentication timeout - no response received')
-                  setIsLoading(false)
-                }, 3000) // Wait 3 seconds for cross-domain auth
-                
-                return // Don't set isLoading to false yet, wait for cross-domain response or timeout
+              console.log('Failed to get authenticated user')
+              setAuthError('Failed to retrieve user information')
+            }
+          } else {
+            console.log('No existing authentication found')
+            
+            // Fallback: Set up cross-domain message listener
+            const clearAuthTimeout = () => {
+              if (authTimeout) {
+                clearTimeout(authTimeout)
+                authTimeout = null
               }
             }
-          } catch (error) {
-            console.error('Error checking existing session:', error)
-            setAuthError('Failed to verify existing session')
+            
+            cleanup = setupCrossDomainListener(setUser, () => {}, setIsLoading, clearAuthTimeout)
+            
+            // Set a timeout to stop loading if no response is received
+            authTimeout = setTimeout(() => {
+              console.log('Cross-domain authentication timeout - no response received')
+              setIsLoading(false)
+            }, 3000) // Wait 3 seconds for cross-domain auth
+            
+            return // Don't set isLoading to false yet, wait for cross-domain response or timeout
           }
         }
       } catch (error) {
@@ -552,39 +485,42 @@ export function AuthProvider({ children }) {
     
     initializeAuth()
     
-    // Listen for auth state changes
+    // Listen for Supabase auth state changes
     const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.email)
+      
       if (event === 'SIGNED_IN' && session?.user) {
-        const userProfile = await authService.getUserProfile(session.user.id)
-        if (userProfile) {
-          setUser({
-            id: session.user.id,
-            email: userProfile.email || session.user.email,
-            name: userProfile.full_name || userProfile.display_name || userProfile.name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-            phone: userProfile.phone,
-            created_at: userProfile.created_at,
-            last_sign_in_at: userProfile.last_sign_in_at,
-            ...userProfile
-          })
-        } else {
-          setUser({
-            id: session.user.id,
-            email: session.user.email,
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User'
-          })
-        }
+        // Handle successful sign in
+        await cookieAuth.handleAuthSuccess(session)
+        setUser(session.user)
         setAuthError(null)
+        
+        // Fetch profile data
+        const profileResult = await profilesAccessor.getProfile({ forceRefresh: true })
+        if (profileResult.data) {
+          setProfile(profileResult.data)
+          setProfileError(null)
+        } else if (profileResult.error) {
+          setProfileError(profileResult.error.message)
+        }
       } else if (event === 'SIGNED_OUT') {
+        // Handle sign out
+        await cookieAuth.handleLogout()
         setUser(null)
-        setTokens(null)
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
-        clearSessionCookies() // Clear cross-domain cookies on sign out
+        setProfile(null)
+        setAuthError(null)
+        setProfileError(null)
+        profilesAccessor.clearCache()
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        // Handle token refresh
+        await cookieAuth.setAuthCookie(session)
       }
     })
     
     return () => {
       subscription?.unsubscribe()
       cleanup?.()
+      profileUnsubscribe?.()
       if (authTimeout) {
         clearTimeout(authTimeout)
       }
@@ -602,9 +538,10 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({
     user,
-    tokens,
+    profile,
     isLoading,
     authError,
+    profileError,
     isAuthenticated: !!user,
     login: async (userData) => {
       if (userData.email && userData.password) {
@@ -623,25 +560,45 @@ export function AuthProvider({ children }) {
     },
     logout: async () => {
       try {
-        await authService.signOut()
+        await cookieAuth.handleLogout()
         setUser(null)
-        setTokens(null)
+        setProfile(null)
         setAuthError(null)
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        setProfileError(null)
+        profilesAccessor.clearCache()
         localStorage.removeItem(FIND_RESULTS_STORAGE_KEY) // Clear search results
-        clearSessionCookies() // Clear cross-domain cookies on logout
       } catch (error) {
         console.error('Logout error:', error)
+        await cookieAuth.handleLogout() // Force logout even on error
         setUser(null)
-        setTokens(null)
+        setProfile(null)
         setAuthError(null)
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        setProfileError(null)
+        profilesAccessor.clearCache()
         localStorage.removeItem(FIND_RESULTS_STORAGE_KEY) // Clear search results even on error
-        clearSessionCookies() // Clear cross-domain cookies even on error
       }
     },
-    clearError: () => setAuthError(null)
-  }), [user, tokens, isLoading, authError])
+    refreshProfile: async () => {
+      try {
+        const result = await profilesAccessor.refresh()
+        if (result.data) {
+          setProfile(result.data)
+          setProfileError(null)
+        } else if (result.error) {
+          setProfileError(result.error.message)
+        }
+        return result
+      } catch (error) {
+        console.error('Error refreshing profile:', error)
+        setProfileError(error.message)
+        return { data: null, error }
+      }
+    },
+    clearError: () => {
+      setAuthError(null)
+      setProfileError(null)
+    }
+  }), [user, profile, isLoading, authError, profileError])
 
   return (
     <AuthContext.Provider value={value}>
