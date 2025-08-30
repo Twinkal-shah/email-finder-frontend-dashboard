@@ -79,7 +79,12 @@ function Topbar() {
     logout()
   }
 
-  const displayName = fullName && fullName.trim() ? fullName : (user?.email || 'Unknown User')
+  const emailLocal = user?.email?.split('@')[0] || 'User'
+  const displayName = fullName && fullName.trim() ? fullName : emailLocal
+  const formatPlan = (p) => {
+    if (!p) return 'Free'
+    return p.charAt(0).toUpperCase() + p.slice(1)
+  }
 
   return (
     <header className="h-14 border-b border-border px-4 flex items-center justify-between bg-card">
@@ -98,7 +103,7 @@ function Topbar() {
                   Verify: {credits.verify.toLocaleString()}
                 </span>
                 <span className="text-purple-600 font-medium capitalize">
-                  {plan}
+                  {formatPlan(plan)}
                 </span>
               </>
             )}

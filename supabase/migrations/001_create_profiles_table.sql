@@ -36,6 +36,7 @@ CREATE POLICY "Users can update own profile" ON profiles
     FOR UPDATE USING (auth.uid() = id); 
 
 -- Create policy for service role to manage all profiles (for admin operations and webhooks)
+-- Note: This policy is only effective when using the service_role key; anon/auth keys will not satisfy this
 CREATE POLICY "Service role can manage profiles" ON profiles
     FOR ALL USING (auth.jwt() ->> 'role' = 'service_role');
 

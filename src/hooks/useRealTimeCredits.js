@@ -19,7 +19,7 @@ export function useRealTimeCredits() {
     error: null
   })
 
-  // Fetch initial credit data
+  // Fetch initial credit data - always fresh from DB (no caching)
   const fetchCreditData = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
       setCreditData(prev => ({ ...prev, loading: false }))
@@ -29,62 +29,66 @@ export function useRealTimeCredits() {
     try {
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
       const profile = await getUserProfile(user.id)
-      
+
       setCreditData({
         find: profile.credits_find || 0,
         verify: profile.credits_verify || 0,
         plan: profile.plan || 'free',
         fullName: profile.full_name || '',
-        planExpiry: profile.plan_expiry,
+        planExpiry: profile.plan_expiry || null,
         loading: false,
         error: null
       })
     } catch (error) {
       console.error('Error fetching credit data:', error)
-      setCreditData(prev => ({
-        ...prev,
+      // Safe fallbacks on failure
+      const emailLocal = user?.email?.split('@')[0] || 'User'
+      setCreditData({
+        find: 0,
+        verify: 0,
+        plan: 'free',
+        fullName: emailLocal,
+        planExpiry: null,
         loading: false,
-        error: error.message
-      }))
+        error: error?.message || 'Failed to load profile'
+      })
     }
-  }, [isAuthenticated, user?.id])
+  }, [isAuthenticated, user?.id, user?.email])
 
   // Set up real-time subscription
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
 
-    // Initial fetch
+    // Fresh fetch on auth/user change
     fetchCreditData()
 
-    // Set up real-time subscription to profiles table
-    const subscription = supabase
+    // Real-time updates for this user's profile
+    const channel = supabase
       .channel('profiles-changes')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'profiles',
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Real-time credit update:', payload)
-          const newData = payload.new
+          const newData = payload.new || {}
           setCreditData(prev => ({
             ...prev,
-            find: newData.credits_find || 0,
-            verify: newData.credits_verify || 0,
-            plan: newData.plan || 'free',
-            fullName: newData.full_name || '',
-            planExpiry: newData.plan_expiry
+            find: newData.credits_find ?? prev.find,
+            verify: newData.credits_verify ?? prev.verify,
+            plan: newData.plan ?? prev.plan,
+            fullName: newData.full_name ?? prev.fullName,
+            planExpiry: newData.plan_expiry ?? prev.planExpiry
           }))
         }
       )
       .subscribe()
 
-    // Cleanup subscription on unmount
     return () => {
-      subscription.unsubscribe()
+      channel.unsubscribe()
     }
   }, [isAuthenticated, user?.id, fetchCreditData])
 
@@ -97,13 +101,13 @@ export function useRealTimeCredits() {
     try {
       const creditType = operation.includes('verify') ? 'verify' : 'find'
       const result = await deductCredits(user.id, quantity, creditType)
-      
+
       // Optimistic update
       setCreditData(prev => ({
         ...prev,
         [creditType]: Math.max(0, prev[creditType] - quantity)
       }))
-      
+
       return result
     } catch (error) {
       console.error('Error deducting credits:', error)
@@ -118,7 +122,7 @@ export function useRealTimeCredits() {
     return availableCredits >= quantity
   }, [creditData])
 
-  // Function to refresh credit data manually
+  // Manual refresh helper
   const refreshCredits = useCallback(() => {
     fetchCreditData()
   }, [fetchCreditData])
@@ -132,11 +136,11 @@ export function useRealTimeCredits() {
     plan: creditData.plan,
     fullName: creditData.fullName,
     planExpiry: creditData.planExpiry,
-    
+
     // State
     loading: creditData.loading,
     error: creditData.error,
-    
+
     // Functions
     useCredits,
     hasCredits,

@@ -6,19 +6,46 @@ import { supabase } from '../services/supabase.js'
  */
 export async function getUserProfile(userId) {
   try {
-    const { data, error } = await supabase
+    let { data, error, status } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
-    
+
     if (error) {
-      console.error('Error fetching user profile:', error)
-      throw error
+      const isNoRow = error?.code === 'PGRST116' || status === 406 || (error?.message || '').toLowerCase().includes('no rows')
+      if (isNoRow) {
+        console.warn('Profile missing for user, creating default profile...', { userId })
+        const { data: authData, error: authErr } = await supabase.auth.getUser()
+        if (authErr || !authData?.user) {
+          console.error('Unable to fetch auth user for profile creation:', authErr)
+          throw error
+        }
+        const authUser = authData.user
+        const localPart = (authUser.email || '').split('@')[0] || null
+        const upsertPayload = {
+          id: userId,
+          email: authUser.email,
+          full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || localPart
+        }
+        const { data: inserted, error: upsertError } = await supabase
+          .from('profiles')
+          .upsert(upsertPayload, { onConflict: 'id' })
+          .select()
+          .single()
+        if (upsertError) {
+          console.error('Error auto-creating profile:', upsertError)
+          throw upsertError
+        }
+        data = inserted
+      } else {
+        console.error('Error fetching user profile:', error)
+        throw error
+      }
     }
-    
+
     // Check if subscription is expired
-    if (data.plan_expiry && new Date(data.plan_expiry) < new Date()) {
+    if (data?.plan_expiry && new Date(data.plan_expiry) < new Date()) {
       // Auto-downgrade expired subscriptions
       const { data: updatedUser } = await supabase
         .from('profiles')
@@ -30,10 +57,10 @@ export async function getUserProfile(userId) {
         .eq('id', userId)
         .select()
         .single()
-      
+
       return updatedUser || data
     }
-    
+
     return data
   } catch (error) {
     console.error('Error in getUserProfile:', error)
@@ -52,12 +79,12 @@ export async function getUserTransactions(userId, limit = 10, offset = 0) {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
-    
+
     if (error) {
       console.error('Error fetching transactions:', error)
       throw error
     }
-    
+
     return {
       transactions: data,
       total: count,
@@ -75,11 +102,11 @@ export async function getUserTransactions(userId, limit = 10, offset = 0) {
 export async function checkCredits(userId, creditsNeeded, creditType = 'find') {
   try {
     const user = await getUserProfile(userId)
-    
+
     const availableCredits = creditType === 'find' 
       ? user.credits_find 
       : user.credits_verify
-    
+
     return {
       hasCredits: availableCredits >= creditsNeeded,
       availableCredits,
@@ -98,26 +125,26 @@ export async function checkCredits(userId, creditsNeeded, creditType = 'find') {
 export async function deductCredits(userId, creditsToDeduct, creditType = 'find') {
   try {
     const column = creditType === 'find' ? 'credits_find' : 'credits_verify'
-    
+
     const { data: profile, error: fetchError } = await supabase
       .from('profiles')
       .select(column)
       .eq('id', userId)
       .single()
-    
+
     if (fetchError) throw fetchError
     const current = profile?.[column] ?? 0
     const newValue = Math.max(0, current - creditsToDeduct)
-    
+
     const { data, error } = await supabase
       .from('profiles')
       .update({ [column]: newValue })
       .eq('id', userId)
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     return {
       remainingCredits: data?.[column] ?? newValue,
       deductedCredits: Math.min(current, creditsToDeduct),
@@ -139,7 +166,7 @@ export async function upsertUserProfile(userData) {
       .upsert(userData)
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   } catch (error) {
@@ -158,7 +185,7 @@ export async function getUserByEmail(email) {
       .select('*')
       .eq('email', email)
       .single()
-    
+
     if (error) throw error
     return data
   } catch (error) {
@@ -184,7 +211,7 @@ export async function initializeFreeTrial(email) {
       .eq('email', email)
       .select()
       .single()
-    
+
     if (error) throw error
     return data
   } catch (error) {
