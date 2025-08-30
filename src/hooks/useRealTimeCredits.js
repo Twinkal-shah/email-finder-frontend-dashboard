@@ -31,11 +31,11 @@ export function useRealTimeCredits() {
       const profile = await getUserProfile(user.id)
 
       setCreditData({
-        find: profile.credits_find || 0,
-        verify: profile.credits_verify || 0,
-        plan: profile.plan || 'free',
-        fullName: profile.full_name || '',
-        planExpiry: profile.plan_expiry || null,
+        find: profiles.credits_find || 0,
+        verify: profiles.credits_verify || 0,
+        plan: profiles.plan || 'free',
+        fullName: profiles.full_name || '',
+        planExpiry: profiles.plan_expiry || null,
         loading: false,
         error: null
       })

@@ -178,7 +178,7 @@ function cleanUrlParams() {
 function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout) {
   let authIframe = null
   
-  const handleMessage = (event) => {
+  const handleMessage = async (event) => {
     // Only accept messages from mailsfinder.com domain (with or without www)
     if (event.origin !== 'https://www.mailsfinder.com' && 
         event.origin !== 'https://mailsfinder.com' && 
@@ -192,6 +192,19 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
       // Clear the authentication timeout since we received a response
       if (clearAuthTimeout) {
         clearAuthTimeout()
+      }
+
+      // If tokens are provided, immediately set the Supabase session so subsequent
+      // requests include the Authorization header (fixes 406 from RLS and session-missing)
+      if (event.data.tokens && event.data.tokens.access_token) {
+        try {
+          await validateAccessToken(
+            event.data.tokens.access_token,
+            event.data.tokens.refresh_token || null
+          )
+        } catch (e) {
+          console.error('Error applying cross-domain session:', e)
+        }
       }
       
       if (event.data.user) {
