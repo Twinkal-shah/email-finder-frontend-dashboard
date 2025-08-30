@@ -15,7 +15,7 @@ export function useRealTimeCredits() {
     plan: 'free',
     fullName: '',
     planExpiry: null,
-    loading: true,
+    loading: isAuthenticated, // Only show loading if authenticated
     error: null
   })
 
@@ -30,15 +30,20 @@ export function useRealTimeCredits() {
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
       const profile = await getUserProfile(user.id)
 
-      setCreditData({
-        find: profile.credits_find || 0,
-        verify: profile.credits_verify || 0,
-        plan: profile.plan || 'free',
-        fullName: profile.full_name || '',
-        planExpiry: profile.plan_expiry || null,
-        loading: false,
-        error: null
-      })
+      if (profile) {
+        console.log('Received profile data:', profile)
+        setCreditData({
+          find: typeof profile.credits_find === 'number' ? profile.credits_find : 0,
+          verify: typeof profile.credits_verify === 'number' ? profile.credits_verify : 0,
+          plan: profile.plan || 'free',
+          fullName: profile.full_name || '',
+          planExpiry: profile.plan_expiry || null,
+          loading: false,
+          error: null
+        })
+      } else {
+        throw new Error('No profile data received')
+      }
     } catch (error) {
       console.error('Error fetching credit data:', error)
       // Safe fallbacks on failure
@@ -75,13 +80,15 @@ export function useRealTimeCredits() {
         },
         (payload) => {
           const newData = payload.new || {}
+          console.log('Received real-time update:', newData)
           setCreditData(prev => ({
             ...prev,
-            find: newData.credits_find ?? prev.find,
-            verify: newData.credits_verify ?? prev.verify,
-            plan: newData.plan ?? prev.plan,
-            fullName: newData.full_name ?? prev.fullName,
-            planExpiry: newData.plan_expiry ?? prev.planExpiry
+            find: typeof newData.credits_find === 'number' ? newData.credits_find : prev.find,
+            verify: typeof newData.credits_verify === 'number' ? newData.credits_verify : prev.verify,
+            plan: newData.plan || prev.plan,
+            fullName: newData.full_name || prev.fullName,
+            planExpiry: newData.plan_expiry || prev.planExpiry,
+            loading: false
           }))
         }
       )
