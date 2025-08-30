@@ -6,14 +6,14 @@ import { supabase } from '../services/supabase.js'
  */
 export async function getUserProfile(userId) {
   try {
-    let { data, error, status } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
     if (error) {
-      const isNoRow = error?.code === 'PGRST116' || status === 406 || (error?.message || '').toLowerCase().includes('no rows')
+      const isNoRow = error?.code === 'PGRST116' || (error?.message || '').toLowerCase().includes('no rows')
       if (isNoRow) {
         console.warn('Profile missing for user, creating default profile...', { userId })
         const { data: authData, error: authErr } = await supabase.auth.getUser()
@@ -26,7 +26,10 @@ export async function getUserProfile(userId) {
         const upsertPayload = {
           id: userId,
           email: authUser.email,
-          full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || localPart
+          full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || localPart,
+          credits_find: 25,
+          credits_verify: 25,
+          plan: 'free'
         }
         const { data: inserted, error: upsertError } = await supabase
           .from('profiles')

@@ -111,7 +111,9 @@ function Topbar() {
         )}
         {isAuthenticated ? (
           <div className="flex items-center gap-2">
-            <span className="text-foreground font-medium">{displayName}</span>
+            <span className="text-foreground font-medium">
+              {loading ? 'Loading...' : (error ? `Error: ${error}` : displayName)}
+            </span>
             <button 
               onClick={handleLogout}
               className="px-3 py-1.5 rounded-md border border-border hover:bg-accent hover:text-accent-foreground transition-colors"

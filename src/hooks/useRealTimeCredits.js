@@ -9,7 +9,6 @@ import { supabase } from '../services/supabase.js'
  */
 export function useRealTimeCredits() {
   const { user, isAuthenticated } = useAuth()
-  console.log('useRealTimeCredits - user:', user, 'isAuthenticated:', isAuthenticated)
   const [creditData, setCreditData] = useState({
     find: 0,
     verify: 0,
@@ -22,18 +21,14 @@ export function useRealTimeCredits() {
 
   // Fetch initial credit data - always fresh from DB (no caching)
   const fetchCreditData = useCallback(async () => {
-    console.log('fetchCreditData called - isAuthenticated:', isAuthenticated, 'user?.id:', user?.id)
-    
     if (!isAuthenticated || !user?.id) {
-      console.log('Skipping fetchCreditData - not authenticated or no user ID')
+      setCreditData(prev => ({ ...prev, loading: false }))
       return
     }
     
     try {
-      console.log('Fetching profile for user ID:', user.id)
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
       const profile = await getUserProfile(user.id)
-      console.log('Profile received:', profile)
 
       if (profile) {
         setCreditData({
@@ -66,16 +61,12 @@ export function useRealTimeCredits() {
 
   // Set up real-time subscription
   useEffect(() => {
-    console.log('useEffect triggered - isAuthenticated:', isAuthenticated, 'user?.id:', user?.id)
     if (!isAuthenticated || !user?.id) {
-      console.log('Skipping fetchCreditData - not authenticated or no user ID')
-      // Ensure loading is false when not authenticated
       setCreditData(prev => ({ ...prev, loading: false }))
       return
     }
 
     // Fresh fetch on auth/user change
-    console.log('Calling fetchCreditData from useEffect')
     fetchCreditData()
 
     // Real-time updates for this user's profile

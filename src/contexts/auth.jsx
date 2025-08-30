@@ -362,6 +362,8 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState(null)
 
+
+
   // Initialize authentication on mount
   useEffect(() => {
     let cleanup = null
