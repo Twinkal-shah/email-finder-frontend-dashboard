@@ -73,7 +73,7 @@ function Sidebar() {
 
 function Topbar() {
   const { user, isAuthenticated, logout } = useAuth()
-  const { credits, plan, fullName, loading, error } = useRealTimeCredits()
+  const { credits, plan, fullName, loading } = useRealTimeCredits()
   
   const handleLogout = () => {
     logout()
@@ -103,9 +103,6 @@ function Topbar() {
             </span>
             {loading && (
               <span className="text-xs text-yellow-600">Loading...</span>
-            )}
-            {error && (
-              <span className="text-xs text-red-600" title={error}>⚠️</span>
             )}
           </div>
         )}
