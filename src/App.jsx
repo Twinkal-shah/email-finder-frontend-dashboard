@@ -92,20 +92,17 @@ function Topbar() {
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         {isAuthenticated && (
           <div className="hidden sm:flex items-center gap-3">
-            {loading ? (
-              <span className="text-muted-foreground">Loading...</span>
-            ) : (
-              <>
-                <span className="text-green-600 font-medium">
-                  Find: {credits.find.toLocaleString()}
-                </span>
-                <span className="text-blue-600 font-medium">
-                  Verify: {credits.verify.toLocaleString()}
-                </span>
-                <span className="text-purple-600 font-medium capitalize">
-                  {formatPlan(plan)}
-                </span>
-              </>
+            <span className="text-green-600 font-medium">
+              Find: {credits?.find?.toLocaleString() || '0'}
+            </span>
+            <span className="text-blue-600 font-medium">
+              Verify: {credits?.verify?.toLocaleString() || '0'}
+            </span>
+            <span className="text-purple-600 font-medium capitalize">
+              {formatPlan(plan) || 'Free'}
+            </span>
+            {loading && (
+              <span className="text-xs text-yellow-600">Loading...</span>
             )}
           </div>
         )}

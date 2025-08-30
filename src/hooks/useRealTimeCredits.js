@@ -15,7 +15,7 @@ export function useRealTimeCredits() {
     plan: 'free',
     fullName: '',
     planExpiry: null,
-    loading: isAuthenticated, // Only show loading if authenticated
+    loading: false,
     error: null
   })
 
@@ -31,7 +31,6 @@ export function useRealTimeCredits() {
       const profile = await getUserProfile(user.id)
 
       if (profile) {
-        console.log('Received profile data:', profile)
         setCreditData({
           find: typeof profile.credits_find === 'number' ? profile.credits_find : 0,
           verify: typeof profile.credits_verify === 'number' ? profile.credits_verify : 0,
@@ -62,7 +61,11 @@ export function useRealTimeCredits() {
 
   // Set up real-time subscription
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) return
+    if (!isAuthenticated || !user?.id) {
+      // Ensure loading is false when not authenticated
+      setCreditData(prev => ({ ...prev, loading: false }))
+      return
+    }
 
     // Fresh fetch on auth/user change
     fetchCreditData()
@@ -80,7 +83,6 @@ export function useRealTimeCredits() {
         },
         (payload) => {
           const newData = payload.new || {}
-          console.log('Received real-time update:', newData)
           setCreditData(prev => ({
             ...prev,
             find: typeof newData.credits_find === 'number' ? newData.credits_find : prev.find,
