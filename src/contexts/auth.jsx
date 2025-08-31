@@ -179,15 +179,18 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
   let authIframe = null
   
   const handleMessage = async (event) => {
+    console.log('Received message from:', event.origin, 'Data:', event.data)
+    
     // Only accept messages from mailsfinder.com domain (with or without www)
     if (event.origin !== 'https://www.mailsfinder.com' && 
         event.origin !== 'https://mailsfinder.com' && 
         event.origin !== 'http://mailsfinder.com') {
+      console.log('Ignoring message from unauthorized origin:', event.origin)
       return
     }
     
     if (event.data && event.data.type === 'USER_AUTH') {
-      console.log('Received cross-domain auth data:', {
+      console.log('Processing USER_AUTH message - Received cross-domain auth data:', {
         user_id: event.data.user?.id,
         email: event.data.user?.email,
         name_fields: {
@@ -314,11 +317,14 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
       // Send auth request when iframe loads
       authIframe.onload = () => {
         console.log('Auth bridge iframe loaded, requesting auth data')
+        const targetOrigin = useNonWww ? 'https://mailsfinder.com' : 'https://www.mailsfinder.com'
+        console.log('Sending REQUEST_AUTH_DATA to:', targetOrigin)
         try {
           authIframe.contentWindow.postMessage(
             { type: 'REQUEST_AUTH_DATA' }, 
-            useNonWww ? 'https://mailsfinder.com' : 'https://www.mailsfinder.com'
+            targetOrigin
           )
+          console.log('Successfully sent REQUEST_AUTH_DATA message')
         } catch (error) {
           console.log('Error sending message to auth bridge:', error)
         }
@@ -494,8 +500,12 @@ export function AuthProvider({ children }) {
             }
           }
           
-          // Set up cross-domain message listener as fallback
-          cleanup = setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout)
+          // Set up cross-domain message listener as fallback (only in production)
+          const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          
+          if (!isDevelopment) {
+            cleanup = setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTimeout)
+          }
           
           // Check for existing Supabase session
           try {
@@ -545,22 +555,31 @@ export function AuthProvider({ children }) {
                 }
               }
               
-              // If no local authentication found, try cross-domain but with quick fallback
-              // Set a timeout to stop loading if no response is received
-              authTimeout = setTimeout(() => {
-                console.log('Cross-domain authentication timeout - proceeding without authentication')
-                setIsLoading(false)
-              }, 1500) // Wait 1.5 seconds for cross-domain auth (reduced from 3 seconds)
-              
-              // Also set a shorter fallback timeout in case cross-domain completely fails
-              setTimeout(() => {
-                if (isLoading) {
-                  console.log('Emergency timeout - forcing loading state to false')
+              // Check if we're in development environment
+                const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                
+                if (isDevelopment) {
+                  console.log('Development environment detected - skipping cross-domain auth')
                   setIsLoading(false)
+                  return
                 }
-              }, 2000) // Emergency fallback after 2 seconds
-              
-              return // Don't set isLoading to false yet, wait for cross-domain response or timeout
+                
+                // If no local authentication found, try cross-domain but with quick fallback
+                // Set a timeout to stop loading if no response is received
+                authTimeout = setTimeout(() => {
+                  console.log('Cross-domain authentication timeout - proceeding without authentication')
+                  setIsLoading(false)
+                }, 1500) // Wait 1.5 seconds for cross-domain auth (reduced from 3 seconds)
+                
+                // Also set a shorter fallback timeout in case cross-domain completely fails
+                setTimeout(() => {
+                  if (isLoading) {
+                    console.log('Emergency timeout - forcing loading state to false')
+                    setIsLoading(false)
+                  }
+                }, 2000) // Emergency fallback after 2 seconds
+                
+                return // Don't set isLoading to false yet, wait for cross-domain response or timeout
               }
             }
           } catch (error) {
@@ -610,7 +629,9 @@ export function AuthProvider({ children }) {
     
     return () => {
       subscription?.unsubscribe()
-      cleanup?.()
+      if (cleanup) {
+        cleanup()
+      }
       if (authTimeout) {
         clearTimeout(authTimeout)
       }
