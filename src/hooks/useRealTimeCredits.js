@@ -32,8 +32,12 @@ export function useRealTimeCredits() {
     try {
       console.log('⏳ Starting credit data fetch for user:', user.id)
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
+      
+      console.log('🚀 About to call getUserProfile...')
       const profile = await getUserProfile(user.id)
       console.log('📊 Profile data received:', profile)
+      console.log('📊 Profile credits_find:', profile?.credits_find)
+      console.log('📊 Profile credits_verify:', profile?.credits_verify)
 
       if (profile) {
         const creditData = {
@@ -45,8 +49,10 @@ export function useRealTimeCredits() {
           loading: false,
           error: null
         }
-        console.log('✅ Setting credit data:', creditData)
+        console.log('✅ Processed credit data:', creditData)
+        console.log('✅ About to call setCreditData...')
         setCreditData(creditData)
+        console.log('✅ setCreditData called successfully')
       } else {
         console.log('❌ No profile data received')
         throw new Error('No profile data received')
