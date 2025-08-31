@@ -6,7 +6,7 @@ import { supabase } from '../services/supabase.js'
  */
 export async function getUserProfile(userId) {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
