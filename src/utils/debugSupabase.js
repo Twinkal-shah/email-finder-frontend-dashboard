@@ -1,6 +1,18 @@
 import { supabase } from '../services/supabase'
 
 /**
+ * Timeout wrapper for async operations
+ */
+function withTimeout(promise, timeoutMs = 10000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ])
+}
+
+/**
  * Debug Supabase connection and session issues
  */
 export async function debugSupabaseConnection() {
@@ -9,10 +21,13 @@ export async function debugSupabaseConnection() {
   try {
     // 1. Check basic connection
     console.log('1. Testing basic connection...')
-    const { data: connectionTest, error: connectionError } = await supabase
-      .from('profiles')
-      .select('count')
-      .limit(0)
+    const { data: connectionTest, error: connectionError } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('count')
+        .limit(0),
+      5000
+    )
     
     if (connectionError) {
       console.error('❌ Connection failed:', connectionError)
@@ -22,7 +37,10 @@ export async function debugSupabaseConnection() {
     
     // 2. Check session
     console.log('2. Checking session...')
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    const { data: { session }, error: sessionError } = await withTimeout(
+      supabase.auth.getSession(),
+      5000
+    )
     
     if (sessionError) {
       console.error('❌ Session error:', sessionError)
@@ -42,11 +60,14 @@ export async function debugSupabaseConnection() {
     
     // 3. Test direct profile query
     console.log('3. Testing direct profile query...')
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single()
+    const { data: profileData, error: profileError } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single(),
+      5000
+    )
     
     if (profileError) {
       console.error('❌ Profile query failed:', profileError)
@@ -57,19 +78,22 @@ export async function debugSupabaseConnection() {
         
         // Try to create profile manually
         console.log('🔧 Attempting to create profile...')
-        const { data: insertData, error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: session.user.id,
-            email: session.user.email,
-            full_name: session.user.user_metadata?.full_name || '',
-            plan: 'free',
-            credits: 25,
-            credits_find: 25,
-            credits_verify: 25
-          })
-          .select()
-          .single()
+        const { data: insertData, error: insertError } = await withTimeout(
+          supabase
+            .from('profiles')
+            .insert({
+              id: session.user.id,
+              email: session.user.email,
+              full_name: session.user.user_metadata?.full_name || '',
+              plan: 'free',
+              credits: 25,
+              credits_find: 25,
+              credits_verify: 25
+            })
+            .select()
+            .single(),
+          5000
+        )
         
         if (insertError) {
           console.error('❌ Profile creation failed:', insertError)
@@ -102,7 +126,10 @@ export async function debugSupabaseConnection() {
     
     // 4. Test session persistence
     console.log('4. Testing session persistence...')
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    const { data: { user }, error: userError } = await withTimeout(
+      supabase.auth.getUser(),
+      5000
+    )
     
     if (userError) {
       console.error('❌ User fetch failed:', userError)
