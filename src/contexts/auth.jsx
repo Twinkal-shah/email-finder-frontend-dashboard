@@ -327,10 +327,26 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
       // Handle iframe load errors
       authIframe.onerror = () => {
         console.log('Failed to load auth bridge iframe')
+        if (clearAuthTimeout) {
+          clearAuthTimeout()
+        }
         if (setIsLoading) {
           setIsLoading(false)
         }
       }
+      
+      // Set a timeout for iframe loading
+      setTimeout(() => {
+        if (authIframe && authIframe.src && !authIframe.contentDocument) {
+          console.log('Auth bridge iframe failed to load within timeout')
+          if (clearAuthTimeout) {
+            clearAuthTimeout()
+          }
+          if (setIsLoading) {
+            setIsLoading(false)
+          }
+        }
+      }, 1000) // 1 second timeout for iframe loading
       
     } catch (error) {
       console.log('Could not create auth iframe:', error)
@@ -516,27 +532,35 @@ export function AuthProvider({ children }) {
                   })
                   setTokens(storedTokens)
                 } else {
-                  // Stored tokens are invalid
-                  localStorage.removeItem(TOKEN_STORAGE_KEY)
+                // Stored tokens are invalid
+                localStorage.removeItem(TOKEN_STORAGE_KEY)
+              }
+            } else {
+              // Check localStorage as final fallback
+              const raw = localStorage.getItem(STORAGE_KEY)
+              if (raw) {
+                const parsed = JSON.parse(raw)
+                if (parsed && typeof parsed === 'object') {
+                  setUser(parsed)
                 }
-              } else {
-                // Check localStorage as final fallback
-                const raw = localStorage.getItem(STORAGE_KEY)
-                if (raw) {
-                  const parsed = JSON.parse(raw)
-                  if (parsed && typeof parsed === 'object') {
-                    setUser(parsed)
-                  }
-                }
-                
-                // If no local authentication found, wait for cross-domain response
-                // Set a timeout to stop loading if no response is received
-                authTimeout = setTimeout(() => {
-                  console.log('Cross-domain authentication timeout - no response received')
+              }
+              
+              // If no local authentication found, try cross-domain but with quick fallback
+              // Set a timeout to stop loading if no response is received
+              authTimeout = setTimeout(() => {
+                console.log('Cross-domain authentication timeout - proceeding without authentication')
+                setIsLoading(false)
+              }, 1500) // Wait 1.5 seconds for cross-domain auth (reduced from 3 seconds)
+              
+              // Also set a shorter fallback timeout in case cross-domain completely fails
+              setTimeout(() => {
+                if (isLoading) {
+                  console.log('Emergency timeout - forcing loading state to false')
                   setIsLoading(false)
-                }, 3000) // Wait 3 seconds for cross-domain auth
-                
-                return // Don't set isLoading to false yet, wait for cross-domain response or timeout
+                }
+              }, 2000) // Emergency fallback after 2 seconds
+              
+              return // Don't set isLoading to false yet, wait for cross-domain response or timeout
               }
             }
           } catch (error) {
