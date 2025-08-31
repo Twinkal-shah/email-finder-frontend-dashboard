@@ -782,14 +782,18 @@ export async function testCrossDomainAuth() {
       
       iframe.onload = () => {
         console.log('Auth bridge iframe loaded, waiting for scripts to initialize...');
+        console.log('Current origin:', window.location.origin);
+        console.log('Target origin:', 'https://www.mailsfinder.com');
         // Wait a bit for the auth bridge JavaScript to fully load and set up listeners
         setTimeout(() => {
           try {
             console.log('Sending REQUEST_AUTH_DATA message to auth bridge...');
+            console.log('Iframe contentWindow:', iframe.contentWindow);
             iframe.contentWindow.postMessage(
               { type: 'REQUEST_AUTH_DATA' },
               'https://www.mailsfinder.com'
             );
+            console.log('PostMessage sent successfully');
           } catch (postError) {
             clearTimeout(timeout);
             window.removeEventListener('message', handleMessage);
