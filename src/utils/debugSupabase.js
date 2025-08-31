@@ -19,6 +19,18 @@ export async function debugSupabaseConnection() {
   console.log('🔍 Starting Supabase debug session...')
   
   try {
+    console.log('Checking Supabase client...')
+    if (!supabase) {
+      throw new Error('Supabase client is not initialized')
+    }
+    
+    console.log('Supabase client:', supabase)
+    console.log('Supabase URL:', supabase.supabaseUrl)
+    console.log('Supabase Key:', supabase.supabaseKey ? 'Present' : 'Missing')
+    
+    console.log('Environment variables:')
+    console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL)
+    console.log('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing')
     // 1. Check basic connection
     console.log('1. Testing basic connection...')
     const { data: connectionTest, error: connectionError } = await withTimeout(
@@ -160,7 +172,17 @@ export async function debugSupabaseConnection() {
     
   } catch (error) {
     console.error('❌ Debug session failed:', error)
-    return { success: false, error: 'Debug session failed', details: error }
+    console.error('Error stack:', error.stack)
+    console.error('Error message:', error.message)
+    return { 
+      success: false, 
+      error: 'Debug session failed', 
+      details: {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      }
+    }
   }
 }
 
