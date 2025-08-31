@@ -34,10 +34,7 @@ export async function debugSupabaseConnection() {
     // 1. Check basic connection
     console.log('1. Testing basic connection...')
     const { data: connectionTest, error: connectionError } = await withTimeout(
-      supabase
-        .from('profiles')
-        .select('count')
-        .limit(0),
+      supabase.auth.getSession(),
       5000
     )
     
