@@ -119,7 +119,9 @@ export class AuthDiagnostics {
         tokenExpiry: session?.expires_at || null,
         error: error?.message || null,
         domain: window.location.hostname,
-        authEndpointStatus: authResponse.status
+        authEndpointStatus: authResponse.status,
+        issue: !session ? 'No active session found' : null,
+        solution: !session ? 'User needs to authenticate on mailsfinder.com first, then cross-domain auth will share the session' : null
       }
       
       console.log('Session check result:', result)
@@ -719,17 +721,19 @@ export async function testCrossDomainAuth() {
     // Test actual cross-domain communication
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
+        window.removeEventListener('message', handleMessage);
         resolve({ 
           success: false,
-          error: 'Cross-domain auth test timed out - auth bridge may not be properly deployed',
+          error: 'Cross-domain auth test timed out',
           details: {
             currentDomain,
             expectedDomains,
             bridgeUrl: authBridgeUrl,
             bridgeAccessible,
             bridgeError,
-            issue: bridgeAccessible ? 'Bridge accessible but not responding to postMessage' : 'Bridge not accessible - needs to be deployed to mailsfinder.com',
-            solution: bridgeAccessible ? 'Check browser console for postMessage errors' : 'Deploy auth-bridge.html to https://mailsfinder.com/auth-bridge.html'
+            issue: bridgeAccessible ? 'Bridge accessible but not responding to postMessage - likely authentication issue' : 'Bridge not accessible - needs to be deployed to mailsfinder.com',
+            solution: bridgeAccessible ? 'Check browser console for postMessage errors. If no errors, user may need to authenticate on mailsfinder.com first.' : 'Deploy auth-bridge.html to https://mailsfinder.com/auth-bridge.html',
+            recommendation: 'Visit https://mailsfinder.com and log in, then return to test cross-domain authentication'
           }
         });
       }, 5000); // Reduced timeout for faster feedback
@@ -758,21 +762,45 @@ export async function testCrossDomainAuth() {
           clearTimeout(timeout);
           window.removeEventListener('message', handleMessage);
           
-          resolve({
-            success: true,
-            message: 'Cross-domain auth bridge communication successful',
-            details: {
-              receivedResponse: true,
-              hasUser: !!event.data.user,
-              hasTokens: !!event.data.tokens,
-              userData: event.data.user ? { email: event.data.user.email, id: event.data.user.id } : null,
-              origin: event.origin,
-              currentDomain,
-              expectedDomains,
-              bridgeAccessible: true,
-              error: event.data.error || null
-            }
-          });
+          const hasUser = !!event.data.user;
+          const hasTokens = !!event.data.tokens;
+          
+          if (hasUser) {
+            resolve({
+              success: true,
+              message: 'Cross-domain auth bridge communication successful - user authenticated',
+              details: {
+                receivedResponse: true,
+                hasUser: true,
+                hasTokens,
+                userData: { email: event.data.user.email, id: event.data.user.id },
+                origin: event.origin,
+                currentDomain,
+                expectedDomains,
+                bridgeAccessible: true,
+                error: event.data.error || null
+              }
+            });
+          } else {
+            resolve({
+              success: false,
+              error: 'No user authenticated on mailsfinder.com',
+              message: 'Cross-domain auth bridge responded but no user is authenticated',
+              details: {
+                receivedResponse: true,
+                hasUser: false,
+                hasTokens: false,
+                userData: null,
+                origin: event.origin,
+                currentDomain,
+                expectedDomains,
+                bridgeAccessible: true,
+                error: event.data.error || null,
+                issue: 'User must authenticate on mailsfinder.com first',
+                solution: 'Visit https://mailsfinder.com and log in, then return to app.mailsfinder.com'
+              }
+            });
+          }
         }
       };
       
