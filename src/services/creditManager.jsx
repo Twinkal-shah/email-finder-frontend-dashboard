@@ -1,4 +1,5 @@
-import { checkCredits, deductCredits, getUserProfile } from '../api/user.js'
+import { checkCredits, deductCredits } from '../api/user.js'
+import { profileService } from '../api/profileService.js'
 import { useAuth } from '../contexts/auth.jsx'
 
 /**
@@ -107,7 +108,7 @@ class CreditManager {
    */
   async getCreditBalance(userId) {
     try {
-      const profile = await getUserProfile(userId)
+      const profile = await profileService.getProfile(userId)
       return {
         find: profile.credits_find || 0,
         verify: profile.credits_verify || 0,

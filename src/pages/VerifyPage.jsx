@@ -4,7 +4,7 @@ import { verifyEmail } from '../services/api.js'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
-import useRealTimeCredits from '../hooks/useRealTimeCredits.js'
+import { useCredits } from '../services/creditManager.jsx'
 
 // function normalizeVerifyStatus(payload) {
 //   if (!payload) return '-'
@@ -34,7 +34,7 @@ export default function VerifyPage() {
   const [email, setEmail] = useState('')
   const [bulkRows, setBulkRows] = useState([])
   const [bulkResults, setBulkResults] = useState([])
-  const { hasCredits, useCredits } = useRealTimeCredits()
+  const { hasCredits, useCredits } = useCredits()
 
   const verifyMutation = useMutation({ 
     mutationFn: (payload) => verifyEmail(payload),

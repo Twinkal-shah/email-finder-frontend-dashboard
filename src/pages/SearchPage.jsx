@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
-import useRealTimeCredits from '../hooks/useRealTimeCredits.js'
+import { useCredits } from '../services/creditManager.jsx'
 
 function normalizeConfidence(raw, statusLike, validLike) {
   if (raw == null) {
@@ -70,7 +70,7 @@ export default function SearchPage() {
   const [mode, setMode] = useState('Person')
   const [formError, setFormError] = useState('')
   const { rows: accumulatedRows, appendRows } = useFindResults()
-  const { hasCredits, useCredits } = useRealTimeCredits()
+  const { hasCredits, useCredits } = useCredits()
 
   const findMutation = useMutation({
     mutationFn: (payload) => findEmail(payload),

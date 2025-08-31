@@ -8,7 +8,7 @@ import AuthDiagnostics from './pages/AuthDiagnostics.jsx'
 import { FindResultsProvider } from './contexts/findResults.jsx'
 import { AuthProvider, useAuth } from './contexts/auth.jsx'
 import { useCredits } from './services/creditManager.jsx'
-import useRealTimeCredits from './hooks/useRealTimeCredits.js'
+import { useRealTimeCredits } from './hooks/useRealTimeCredits.js'
 import DebugCredits from './components/DebugCredits.jsx'
 import TestCredits from './components/TestCredits.jsx'
 import { useState, useEffect } from 'react'
@@ -81,18 +81,16 @@ function Sidebar() {
 
 function Topbar() {
   const { user, isAuthenticated, logout } = useAuth()
-  const { find, verify, plan, fullName, loading, error } = useRealTimeCredits()
+  const { creditData, refetch } = useRealTimeCredits(user)
+  const { find, verify, loading } = creditData
   
   const handleLogout = () => {
     logout()
   }
 
   const emailLocal = user?.email?.split('@')[0] || 'User'
-  const displayName = fullName && fullName.trim() ? fullName : emailLocal
-  const formatPlan = (p) => {
-    if (!p) return 'Free'
-    return p.charAt(0).toUpperCase() + p.slice(1)
-  }
+  const displayName = emailLocal // Simplified for now
+  const formatPlan = () => 'Free' // Default plan for now
 
   return (
     <header className="h-14 border-b border-border px-4 flex items-center justify-between bg-card">
@@ -107,20 +105,18 @@ function Topbar() {
               Verify: {verify?.toLocaleString() || '0'}
             </span>
             <span className="text-purple-600 font-medium capitalize">
-              {formatPlan(plan) || 'Free'}
+              {formatPlan()}
             </span>
             {loading && (
               <span className="text-xs text-yellow-600">Loading...</span>
             )}
-            {error && (
-              <span className="text-xs text-red-600" title={error}>⚠️</span>
-            )}
+
           </div>
         )}
         {isAuthenticated ? (
           <div className="flex items-center gap-2">
             <span className="text-foreground font-medium">
-              {loading ? 'Loading...' : (error ? `Error: ${error}` : displayName)}
+              {loading ? 'Loading...' : displayName}
             </span>
             <button 
               onClick={handleLogout}

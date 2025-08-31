@@ -1,94 +1,58 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '../contexts/auth.jsx'
-import { getUserProfile, deductCredits } from '../api/user.js'
 import { supabase } from '../services/supabase.js'
+import { profileService } from '../api/profileService.js'
 
-/**
- * Real-time credits hook that provides live credit data from Supabase
- * Automatically updates when credits change in the database
- */
-export function useRealTimeCredits() {
-  const { user, isAuthenticated } = useAuth()
+export function useRealTimeCredits(user) {
   const [creditData, setCreditData] = useState({
     find: 0,
     verify: 0,
-    plan: 'free',
-    fullName: '',
-    planExpiry: null,
-    loading: false,
-    error: null
+    loading: true
   })
 
-  // Fetch initial credit data - always fresh from DB (no caching)
   const fetchCreditData = useCallback(async () => {
-    console.log('🔍 fetchCreditData called:', { isAuthenticated, userId: user?.id, userEmail: user?.email })
-    
-    if (!isAuthenticated || !user?.id) {
-      console.log('❌ Not authenticated or no user ID, skipping credit fetch')
-      setCreditData(prev => ({ ...prev, loading: false }))
+    if (!user?.id) {
+      console.log('🔍 No user ID available for credit fetch')
+      setCreditData({ find: 0, verify: 0, loading: false })
       return
     }
-    
-    try {
-      console.log('⏳ Starting credit data fetch for user:', user.id)
-      setCreditData(prev => ({ ...prev, loading: true, error: null }))
-      
-      console.log('🚀 About to call getUserProfile...')
-      const profile = await getUserProfile(user.id)
-      console.log('📊 Profile data received:', profile)
-      console.log('📊 Profile credits_find:', profile?.credits_find)
-      console.log('📊 Profile credits_verify:', profile?.credits_verify)
 
+    try {
+      console.log('💰 useRealTimeCredits: Fetching credits for user:', user.id)
+      
+      const profile = await profileService.getProfile(user.id)
+      console.log('💰 useRealTimeCredits: Profile received:', profile)
+      
       if (profile) {
-        const creditData = {
-          find: typeof profile.credits_find === 'number' ? profile.credits_find : 0,
-          verify: typeof profile.credits_verify === 'number' ? profile.credits_verify : 0,
-          plan: profile.plan || 'free',
-          fullName: profile.full_name || '',
-          planExpiry: profile.plan_expiry || null,
-          loading: false,
-          error: null
+        const newCreditData = {
+          find: Number(profile.credits_find) || 0,
+          verify: Number(profile.credits_verify) || 0,
+          loading: false
         }
-        console.log('✅ Processed credit data:', creditData)
-        console.log('✅ About to call setCreditData...')
-        setCreditData(creditData)
-        console.log('✅ setCreditData called successfully')
+        console.log('💰 useRealTimeCredits: Setting credits:', newCreditData)
+        setCreditData(newCreditData)
       } else {
-        console.log('❌ No profile data received')
-        throw new Error('No profile data received')
+        console.log('💰 useRealTimeCredits: No profile, setting defaults')
+        setCreditData({ find: 0, verify: 0, loading: false })
       }
     } catch (error) {
-      console.error('💥 Error fetching credit data:', error)
-      console.error('💥 Error details:', { message: error?.message, stack: error?.stack })
-      // Safe fallbacks on failure
-      const emailLocal = user?.email?.split('@')[0] || 'User'
-      const fallbackData = {
-        find: 0,
-        verify: 0,
-        plan: 'free',
-        fullName: emailLocal,
-        planExpiry: null,
-        loading: false,
-        error: error?.message || 'Failed to load profile'
-      }
-      console.log('🔄 Setting fallback credit data:', fallbackData)
-      setCreditData(fallbackData)
+      console.error('❌ useRealTimeCredits: Error fetching credits:', error)
+      setCreditData({ find: 0, verify: 0, loading: false })
     }
-  }, [isAuthenticated, user?.id, user?.email])
+  }, [user?.id])
 
-  // Set up real-time subscription
+  // Initial fetch
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
-      setCreditData(prev => ({ ...prev, loading: false }))
-      return
-    }
-
-    // Fresh fetch on auth/user change
     fetchCreditData()
+  }, [fetchCreditData])
 
-    // Real-time updates for this user's profile
-    const channel = supabase
-      .channel('profiles-changes')
+  // Set up real-time subscription for profile changes
+  useEffect(() => {
+    if (!user?.id) return
+
+    console.log('🔄 useRealTimeCredits: Setting up real-time subscription for user:', user.id)
+    
+    const subscription = supabase
+      .channel(`profile-changes-${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -98,83 +62,25 @@ export function useRealTimeCredits() {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          const newData = payload.new || {}
-          setCreditData(prev => ({
-            ...prev,
-            find: typeof newData.credits_find === 'number' ? newData.credits_find : prev.find,
-            verify: typeof newData.credits_verify === 'number' ? newData.credits_verify : prev.verify,
-            plan: newData.plan || prev.plan,
-            fullName: newData.full_name || prev.fullName,
-            planExpiry: newData.plan_expiry || prev.planExpiry,
-            loading: false
-          }))
+          console.log('🔄 useRealTimeCredits: Real-time update:', payload)
+          if (payload.new) {
+            const newCreditData = {
+              find: Number(payload.new.credits_find) || 0,
+              verify: Number(payload.new.credits_verify) || 0,
+              loading: false
+            }
+            console.log('🔄 useRealTimeCredits: Updating credits from real-time:', newCreditData)
+            setCreditData(newCreditData)
+          }
         }
       )
       .subscribe()
 
     return () => {
-      channel.unsubscribe()
+      console.log('🔄 useRealTimeCredits: Cleaning up subscription')
+      subscription.unsubscribe()
     }
-  }, [isAuthenticated, user?.id, fetchCreditData])
+  }, [user?.id])
 
-  // Function to deduct credits and trigger real-time update
-  const useCredits = useCallback(async (operation, quantity = 1) => {
-    if (!isAuthenticated || !user?.id) {
-      throw new Error('User not authenticated')
-    }
-
-    try {
-      const creditType = operation.includes('verify') ? 'verify' : 'find'
-      const result = await deductCredits(user.id, quantity, creditType)
-
-      // Optimistic update
-      setCreditData(prev => ({
-        ...prev,
-        [creditType]: Math.max(0, prev[creditType] - quantity)
-      }))
-
-      return result
-    } catch (error) {
-      console.error('Error deducting credits:', error)
-      throw error
-    }
-  }, [isAuthenticated, user?.id])
-
-  // Function to check if user has sufficient credits
-  const hasCredits = useCallback((operation, quantity = 1) => {
-    const creditType = operation.includes('verify') ? 'verify' : 'find'
-    const availableCredits = creditData[creditType]
-    return availableCredits >= quantity
-  }, [creditData])
-
-  // Manual refresh helper
-  const refreshCredits = useCallback(() => {
-    fetchCreditData()
-  }, [fetchCreditData])
-
-  return {
-    // Credit data (direct access for easier consumption)
-    find: creditData.find,
-    verify: creditData.verify,
-    plan: creditData.plan,
-    fullName: creditData.fullName,
-    planExpiry: creditData.planExpiry,
-
-    // Legacy credits object for backward compatibility
-    credits: {
-      find: creditData.find,
-      verify: creditData.verify
-    },
-
-    // State
-    loading: creditData.loading,
-    error: creditData.error,
-
-    // Functions
-    useCredits,
-    hasCredits,
-    refreshCredits
-  }
+  return { creditData, refetch: fetchCreditData }
 }
-
-export default useRealTimeCredits

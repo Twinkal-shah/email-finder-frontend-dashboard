@@ -1,73 +1,26 @@
 // Use the shared Supabase client so it carries the authenticated session
 import { supabase } from '../services/supabase.js'
+import { profileService } from './profileService.js'
 
 /**
  * Get user profile with credits and subscription info
  */
 export async function getUserProfile(userId) {
+  console.log('🔍 getUserProfile called with userId:', userId)
+  
+  if (!userId) {
+    console.log('❌ No userId provided to getUserProfile')
+    return null
+  }
+
   try {
-    let { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      const isNoRow = error?.code === 'PGRST116' || (error?.message || '').toLowerCase().includes('no rows')
-      if (isNoRow) {
-        console.warn('Profile missing for user, creating default profile...', { userId })
-        const { data: authData, error: authErr } = await supabase.auth.getUser()
-        if (authErr || !authData?.user) {
-          console.error('Unable to fetch auth user for profile creation:', authErr)
-          throw error
-        }
-        const authUser = authData.user
-        const localPart = (authUser.email || '').split('@')[0] || null
-        const upsertPayload = {
-          id: userId,
-          email: authUser.email,
-          full_name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || localPart,
-          credits_find: 25,
-          credits_verify: 25,
-          plan: 'free'
-        }
-        const { data: inserted, error: upsertError } = await supabase
-          .from('profiles')
-          .upsert(upsertPayload, { onConflict: 'id' })
-          .select()
-          .single()
-        if (upsertError) {
-          console.error('Error auto-creating profile:', upsertError)
-          throw upsertError
-        }
-        data = inserted
-      } else {
-        console.error('Error fetching user profile:', error)
-        throw error
-      }
-    }
-
-    // Check if subscription is expired
-    if (data?.plan_expiry && new Date(data.plan_expiry) < new Date()) {
-      // Auto-downgrade expired subscriptions
-      const { data: updatedUser } = await supabase
-        .from('profiles')
-        .update({
-          plan: 'free',
-          subscription_id: null,
-          plan_expiry: null
-        })
-        .eq('id', userId)
-        .select()
-        .single()
-
-      return updatedUser || data
-    }
-
-    return data
+    // Use the new robust profile service
+    const profile = await profileService.getProfile(userId)
+    console.log('✅ getUserProfile returning profile:', profile)
+    return profile
   } catch (error) {
-    console.error('Error in getUserProfile:', error)
-    throw error
+    console.error('❌ Error in getUserProfile:', error)
+    return null
   }
 }
 

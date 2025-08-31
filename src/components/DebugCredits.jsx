@@ -4,7 +4,8 @@ import { useRealTimeCredits } from '../hooks/useRealTimeCredits.js'
 
 export function DebugCredits() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
-  const { find, verify, plan, fullName, loading: creditsLoading, error } = useRealTimeCredits()
+  const { creditData, refetch } = useRealTimeCredits(user)
+  const { find, verify, loading: creditsLoading } = creditData
 
   return (
     <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg p-4 shadow-lg max-w-sm z-50">
@@ -21,9 +22,8 @@ export function DebugCredits() {
         <div><strong>Credits Loading:</strong> {creditsLoading ? 'Yes' : 'No'}</div>
         <div><strong>Find Credits:</strong> {find}</div>
         <div><strong>Verify Credits:</strong> {verify}</div>
-        <div><strong>Plan:</strong> {plan}</div>
-        <div><strong>Full Name:</strong> {fullName}</div>
-        <div><strong>Error:</strong> {error || 'None'}</div>
+        <div><strong>Plan:</strong> Free (default)</div>
+        <div><strong>Full Name:</strong> {user?.email?.split('@')[0] || 'User'}</div>
       </div>
       
       <button 
