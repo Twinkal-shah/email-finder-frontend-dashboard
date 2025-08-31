@@ -700,17 +700,20 @@ export async function testCrossDomainAuth() {
     let bridgeError = null;
     
     try {
+      console.log('Testing auth bridge accessibility at:', authBridgeUrl);
       const response = await fetch(authBridgeUrl, { 
         method: 'GET',
         mode: 'cors'
       });
       bridgeAccessible = response.ok;
+      console.log('Auth bridge response status:', response.status, response.statusText);
       if (!response.ok) {
         bridgeError = `HTTP ${response.status}: ${response.statusText}`;
       }
     } catch (fetchError) {
       bridgeAccessible = false;
       bridgeError = fetchError.message;
+      console.error('Auth bridge fetch error:', fetchError);
     }
     
     // Test actual cross-domain communication
