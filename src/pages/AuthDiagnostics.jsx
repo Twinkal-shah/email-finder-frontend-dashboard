@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { authDiagnostics, checkAuthConfiguration } from '../utils/authDiagnostics'
+import { authDiagnostics, testSupabaseConnection, checkAuthConfiguration, testCrossDomainAuth } from '../utils/authDiagnostics'
+import { debugSupabaseConnection, quickSessionCheck } from '../utils/debugSupabase'
 import { useAuth } from '../contexts/auth'
 
 const AuthDiagnostics = () => {
@@ -47,6 +48,9 @@ const AuthDiagnostics = () => {
           break
         case 'crossDomain':
           result = await authDiagnostics.testCrossDomainAuth()
+          break
+        case 'supabaseDebug':
+          result = await debugSupabaseConnection()
           break
         default:
           result = { error: 'Unknown test' }
@@ -215,6 +219,14 @@ const AuthDiagnostics = () => {
           >
             {manualTests.crossDomain?.running ? 'Testing...' : 'Test Cross-Domain'}
           </button>
+          
+          <button
+            onClick={() => runManualTest('supabaseDebug')}
+            disabled={manualTests.supabaseDebug?.running}
+            className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded font-medium transition-colors"
+          >
+            {manualTests.supabaseDebug?.running ? 'Testing...' : 'Debug Supabase'}
+          </button>
         </div>
 
         {/* Manual Test Results */}
@@ -232,7 +244,8 @@ const AuthDiagnostics = () => {
                   profileFetch: 'ProfileFetch Test',
                   profileCreation: 'ProfileCreation Test',
                   authConfig: 'Auth Configuration Test',
-                  crossDomain: 'CrossDomain Test'
+                  crossDomain: 'CrossDomain Test',
+                  supabaseDebug: 'Supabase Debug Test'
                 }
                 
                 return (
