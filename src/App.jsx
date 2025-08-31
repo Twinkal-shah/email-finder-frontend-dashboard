@@ -4,6 +4,7 @@ import SearchPage from './pages/SearchPage.jsx'
 import VerifyPage from './pages/VerifyPage.jsx'
 import BulkSearchPage from './pages/BulkSearchPage.jsx'
 import BillingPage from './pages/BillingPage.jsx'
+import AuthDiagnostics from './pages/AuthDiagnostics.jsx'
 import { FindResultsProvider } from './contexts/findResults.jsx'
 import { AuthProvider, useAuth } from './contexts/auth.jsx'
 import { useCredits } from './services/creditManager.jsx'
@@ -51,6 +52,11 @@ function Sidebar() {
         <SectionLabel>ACCOUNT</SectionLabel>
         <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible">
           <SidebarItem to="/billing" label="Credits & Billing" />
+        </nav>
+
+        <SectionLabel>DIAGNOSTICS</SectionLabel>
+        <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible">
+          <SidebarItem to="/diagnostics" label="Auth Diagnostics" />
         </nav>
       </div>
 
@@ -179,6 +185,7 @@ function Layout() {
                   <Route path="/verify" element={<VerifyPage />} />
                   <Route path="/bulk-search" element={<BulkSearchPage />} />
                   <Route path="/billing" element={<BillingPage />} />
+                  <Route path="/diagnostics" element={<AuthDiagnostics />} />
                   <Route path="/" element={<Navigate to="/search" replace />} />
                   <Route path="*" element={<div className="p-6 text-center">Not Found</div>} />
                 </Routes>

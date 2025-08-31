@@ -135,7 +135,7 @@ function TransactionRow({ transaction }) {
 }
 
 export default function BillingPage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [userProfile, setUserProfile] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -144,11 +144,8 @@ export default function BillingPage() {
   useEffect(() => {
     if (isAuthenticated && user) {
       loadUserData()
-    } else if (!authLoading && !isAuthenticated) {
-      // Authentication completed but user is not authenticated
-      setLoading(false)
     }
-  }, [isAuthenticated, user, authLoading])
+  }, [isAuthenticated, user])
   
   const loadUserData = async () => {
     try {
@@ -192,14 +189,12 @@ export default function BillingPage() {
     )
   }
   
-  if (loading || authLoading) {
+  if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">
-            {authLoading ? 'Authenticating...' : 'Loading billing information...'}
-          </p>
+          <p className="mt-4 text-gray-600">Loading billing information...</p>
         </div>
       </div>
     )
