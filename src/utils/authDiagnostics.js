@@ -24,32 +24,40 @@ async function testSupabaseConnection() {
     console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
     console.log('Anon Key (first 20 chars):', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + '...')
     
-    // Test a simple query that should work without authentication
-    const { data, error } = await withTimeout(
-      supabase.from('profiles').select('count', { count: 'exact', head: true }),
-      3000,
+    // Test basic connectivity by making a simple REST API call
+    const response = await withTimeout(
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`, {
+        method: 'GET',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        }
+      }),
+      5000,
       'Connection test timed out'
     )
     
-    if (error) {
-      console.error('Supabase connection error:', error)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Supabase connection error:', response.status, errorText)
       return {
         success: false,
-        error: error.message,
-        details: error
+        error: `HTTP ${response.status}: ${errorText}`,
+        details: { status: response.status, statusText: response.statusText }
       }
     }
     
     console.log('Supabase connection successful')
     return {
       success: true,
-      message: 'Connection established'
+      message: 'Connection established',
+      details: { status: response.status }
     }
   } catch (error) {
     console.error('Connection test failed:', error)
     return {
       success: false,
-      error: error.message,
+      error: error.message || 'Connection test timed out',
       details: error
     }
   }
