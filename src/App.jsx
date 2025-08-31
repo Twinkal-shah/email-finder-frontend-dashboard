@@ -9,6 +9,8 @@ import { FindResultsProvider } from './contexts/findResults.jsx'
 import { AuthProvider, useAuth } from './contexts/auth.jsx'
 import { useCredits } from './services/creditManager.jsx'
 import useRealTimeCredits from './hooks/useRealTimeCredits.js'
+import DebugCredits from './components/DebugCredits.jsx'
+import TestCredits from './components/TestCredits.jsx'
 import { useState, useEffect } from 'react'
 
 const queryClient = new QueryClient()
@@ -193,6 +195,8 @@ function Layout() {
             </div>
           </main>
         </div>
+        <DebugCredits />
+        <TestCredits />
       </div>
     </AuthGuard>
   )

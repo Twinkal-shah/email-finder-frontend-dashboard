@@ -21,17 +21,22 @@ export function useRealTimeCredits() {
 
   // Fetch initial credit data - always fresh from DB (no caching)
   const fetchCreditData = useCallback(async () => {
+    console.log('🔍 fetchCreditData called:', { isAuthenticated, userId: user?.id, userEmail: user?.email })
+    
     if (!isAuthenticated || !user?.id) {
+      console.log('❌ Not authenticated or no user ID, skipping credit fetch')
       setCreditData(prev => ({ ...prev, loading: false }))
       return
     }
     
     try {
+      console.log('⏳ Starting credit data fetch for user:', user.id)
       setCreditData(prev => ({ ...prev, loading: true, error: null }))
       const profile = await getUserProfile(user.id)
+      console.log('📊 Profile data received:', profile)
 
       if (profile) {
-        setCreditData({
+        const creditData = {
           find: typeof profile.credits_find === 'number' ? profile.credits_find : 0,
           verify: typeof profile.credits_verify === 'number' ? profile.credits_verify : 0,
           plan: profile.plan || 'free',
@@ -39,15 +44,19 @@ export function useRealTimeCredits() {
           planExpiry: profile.plan_expiry || null,
           loading: false,
           error: null
-        })
+        }
+        console.log('✅ Setting credit data:', creditData)
+        setCreditData(creditData)
       } else {
+        console.log('❌ No profile data received')
         throw new Error('No profile data received')
       }
     } catch (error) {
-      console.error('Error fetching credit data:', error)
+      console.error('💥 Error fetching credit data:', error)
+      console.error('💥 Error details:', { message: error?.message, stack: error?.stack })
       // Safe fallbacks on failure
       const emailLocal = user?.email?.split('@')[0] || 'User'
-      setCreditData({
+      const fallbackData = {
         find: 0,
         verify: 0,
         plan: 'free',
@@ -55,7 +64,9 @@ export function useRealTimeCredits() {
         planExpiry: null,
         loading: false,
         error: error?.message || 'Failed to load profile'
-      })
+      }
+      console.log('🔄 Setting fallback credit data:', fallbackData)
+      setCreditData(fallbackData)
     }
   }, [isAuthenticated, user?.id, user?.email])
 
