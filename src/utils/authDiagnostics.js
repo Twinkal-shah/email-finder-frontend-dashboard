@@ -85,10 +85,28 @@ export class AuthDiagnostics {
     console.log('🔍 Step 1: Checking session consistency...')
     
     try {
+      // First try a direct auth endpoint test
+      console.log('Testing auth endpoint directly...')
+      const authResponse = await withTimeout(
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/user`, {
+          method: 'GET',
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          }
+        }),
+        3000,
+        'Auth endpoint test timed out'
+      )
+      
+      console.log('Auth endpoint response status:', authResponse.status)
+      
+      // Now try the Supabase client session check
+      console.log('Testing Supabase client session...')
       const sessionPromise = supabase.auth.getSession()
       const { data: { session }, error } = await withTimeout(
         sessionPromise, 
-        5000, 
+        3000, 
         'Session check timed out'
       )
       
@@ -100,7 +118,8 @@ export class AuthDiagnostics {
         hasAccessToken: !!session?.access_token,
         tokenExpiry: session?.expires_at || null,
         error: error?.message || null,
-        domain: window.location.hostname
+        domain: window.location.hostname,
+        authEndpointStatus: authResponse.status
       }
       
       console.log('Session check result:', result)
@@ -129,7 +148,7 @@ export class AuthDiagnostics {
       
       const { data, error } = await withTimeout(
         queryPromise,
-        5000,
+        3000,
         'Profiles table check timed out'
       )
       
@@ -161,7 +180,7 @@ export class AuthDiagnostics {
       const sessionPromise = supabase.auth.getSession()
       const { data: { session } } = await withTimeout(
         sessionPromise,
-        5000,
+        3000,
         'Session fetch timed out during profile test'
       )
       
