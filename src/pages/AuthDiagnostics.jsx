@@ -36,6 +36,9 @@ const AuthDiagnostics = () => {
         case 'profileFetch':
           result = await authDiagnostics.testProfileFetch()
           break
+        case 'profileCreation':
+          result = await authDiagnostics.testProfileCreationTrigger()
+          break
         case 'crossDomain':
           result = await authDiagnostics.testCrossDomainAuth()
           break
@@ -100,7 +103,7 @@ const AuthDiagnostics = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <button
             onClick={() => runManualTest('session')}
             disabled={manualTests.session?.running}
@@ -123,6 +126,14 @@ const AuthDiagnostics = () => {
             className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded font-medium transition-colors"
           >
             {manualTests.profileFetch?.running ? 'Testing...' : 'Test Profile Fetch'}
+          </button>
+          
+          <button
+            onClick={() => runManualTest('profileCreation')}
+            disabled={manualTests.profileCreation?.running}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-4 py-2 rounded font-medium transition-colors"
+          >
+            {manualTests.profileCreation?.running ? 'Testing...' : 'Test Profile Creation'}
           </button>
           
           <button

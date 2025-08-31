@@ -4,6 +4,18 @@
 import { supabase } from '../services/supabase'
 
 /**
+ * Utility function to add timeout to async operations
+ */
+function withTimeout(promise, timeoutMs = 10000, timeoutMessage = 'Operation timed out') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+    )
+  ])
+}
+
+/**
  * Comprehensive authentication diagnostics
  * Run this to identify where the auth/profile fetch is failing
  */
@@ -25,7 +37,12 @@ export class AuthDiagnostics {
     console.log('🔍 Step 1: Checking session consistency...')
     
     try {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      const sessionPromise = supabase.auth.getSession()
+      const { data: { session }, error } = await withTimeout(
+        sessionPromise, 
+        5000, 
+        'Session check timed out'
+      )
       
       const result = {
         hasSession: !!session,
@@ -57,10 +74,16 @@ export class AuthDiagnostics {
     
     try {
       // Try to query the table structure
-      const { data, error } = await supabase
+      const queryPromise = supabase
         .from('profiles')
         .select('id')
         .limit(1)
+      
+      const { data, error } = await withTimeout(
+        queryPromise,
+        5000,
+        'Profiles table check timed out'
+      )
       
       const result = {
         tableExists: !error || !error.message.includes('relation "public.profiles" does not exist'),
@@ -87,7 +110,12 @@ export class AuthDiagnostics {
     console.log('🔍 Step 3: Testing profile fetch with current session...')
     
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const sessionPromise = supabase.auth.getSession()
+      const { data: { session } } = await withTimeout(
+        sessionPromise,
+        5000,
+        'Session fetch timed out during profile test'
+      )
       
       if (!session?.user?.id) {
         const result = { error: 'No authenticated user found' }
@@ -98,7 +126,7 @@ export class AuthDiagnostics {
       console.log('Attempting to fetch profile for user:', session.user.id)
       
       // Test direct profile fetch
-      const { data: profile, error } = await supabase
+      const profilePromise = supabase
         .from('profiles')
         .select(`
           id,
@@ -116,6 +144,12 @@ export class AuthDiagnostics {
         `)
         .eq('id', session.user.id)
         .single()
+      
+      const { data: profile, error } = await withTimeout(
+        profilePromise,
+        5000,
+        'Profile fetch timed out'
+      )
       
       const result = {
         userId: session.user.id,
@@ -145,41 +179,156 @@ export class AuthDiagnostics {
     console.log('🔍 Step 4: Checking if profile row exists for current user...')
     
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const sessionPromise = supabase.auth.getSession()
+      const { data: { session } } = await withTimeout(
+        sessionPromise,
+        5000,
+        'Session fetch timed out during profile row check'
+      )
       
       if (!session?.user?.id) {
-        return { error: 'No authenticated user found' }
+        return {
+          success: false,
+          error: 'No authenticated user found',
+          hasSession: false
+        }
       }
       
-      // Use service role to check if row exists (bypassing RLS)
-      // Note: This would require service role key, so we'll try a different approach
-      
-      // Try to count rows for this user
-      const { count, error } = await supabase
+      // Count rows for this user
+      const countPromise = supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('id', session.user.id)
       
+      const { count, error } = await withTimeout(
+        countPromise,
+        5000,
+        'Profile row count timed out'
+      )
+      
       const result = {
+        success: !error,
+        hasSession: true,
         userId: session.user.id,
-        rowExists: count > 0,
-        rowCount: count,
-        error: error?.message || null
+        userEmail: session.user.email,
+        userCreatedAt: session.user.created_at,
+        profileRowCount: count,
+        profileExists: count > 0,
+        error: error?.message || null,
+        errorCode: error?.code || null,
+        errorDetails: error?.details || null
       }
       
-      console.log('Profile row existence check:', result)
+      console.log('Profile row exists check result:', result)
+      this.results.profileRowExists = result
+      
       return result
     } catch (error) {
-      console.error('Profile row check failed:', error)
+      console.error('Profile row exists check failed:', error)
+      this.results.profileRowExists = { error: error.message }
       return { error: error.message }
     }
   }
 
   /**
-   * Step 5: Test cross-domain auth bridge communication
+   * Step 5: Test profile creation trigger
+   */
+  async testProfileCreationTrigger() {
+    console.log('🔍 Step 5: Testing profile creation trigger...')
+    
+    try {
+      const sessionPromise = supabase.auth.getSession()
+      const { data: { session } } = await withTimeout(
+        sessionPromise,
+        5000,
+        'Session fetch timed out during trigger test'
+      )
+      
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: 'No authenticated user found',
+          hasSession: false
+        }
+      }
+      
+      // Check if user exists in auth.users (should always be true if we have a session)
+      console.log('User ID:', session.user.id)
+      console.log('User Email:', session.user.email)
+      console.log('User Created At:', session.user.created_at)
+      
+      // Try to manually trigger profile creation if it doesn't exist
+      const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('id', session.user.id)
+      
+      if (count === 0) {
+        console.log('No profile found, attempting manual creation...')
+        
+        // Try to insert profile manually (this should work if RLS allows it)
+        const insertPromise = supabase
+          .from('profiles')
+          .insert({
+            id: session.user.id,
+            email: session.user.email,
+            full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+            plan: 'free',
+            credits: 25,
+            credits_find: 25,
+            credits_verify: 25
+          })
+        
+        const { data: insertData, error: insertError } = await withTimeout(
+          insertPromise,
+          5000,
+          'Profile insertion timed out'
+        )
+        
+        const result = {
+          success: !insertError,
+          hasSession: true,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          profileExistedBefore: false,
+          manualInsertAttempted: true,
+          manualInsertSuccess: !insertError,
+          insertData: insertData,
+          error: insertError?.message || null,
+          errorCode: insertError?.code || null,
+          errorDetails: insertError?.details || null
+        }
+        
+        console.log('Profile creation trigger test result:', result)
+        this.results.profileCreationTest = result
+        return result
+      } else {
+        const result = {
+          success: true,
+          hasSession: true,
+          userId: session.user.id,
+          userEmail: session.user.email,
+          profileExistedBefore: true,
+          manualInsertAttempted: false,
+          error: null
+        }
+        
+        console.log('Profile creation trigger test result:', result)
+        this.results.profileCreationTest = result
+        return result
+      }
+    } catch (error) {
+      console.error('Profile creation trigger test failed:', error)
+      this.results.profileCreationTest = { error: error.message }
+      return { error: error.message }
+    }
+  }
+
+  /**
+   * Step 6: Test cross-domain auth bridge communication
    */
   async testCrossDomainAuth() {
-    console.log('🔍 Step 5: Testing cross-domain auth bridge...')
+    console.log('🔍 Step 6: Testing cross-domain auth bridge...')
     
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
@@ -252,6 +401,7 @@ export class AuthDiagnostics {
     results.tests.profilesTableCheck = await this.checkProfilesTable()
     results.tests.profileFetchTest = await this.testProfileFetch()
     results.tests.profileRowExists = await this.checkProfileRowExists()
+    results.tests.profileCreationTest = await this.testProfileCreationTrigger()
     results.tests.crossDomainTest = await this.testCrossDomainAuth()
     
     // Generate summary
