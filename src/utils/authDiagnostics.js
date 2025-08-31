@@ -784,19 +784,34 @@ export async function testCrossDomainAuth() {
       iframe.src = authBridgeUrl;
       
       iframe.onload = () => {
-        console.log('Auth bridge iframe loaded, waiting for scripts to initialize...');
+        console.log('Auth bridge iframe loaded successfully');
+        console.log('Iframe URL:', iframe.src);
+        console.log('Iframe contentWindow available:', !!iframe.contentWindow);
         console.log('Current origin:', window.location.origin);
-        console.log('Target origin:', 'https://www.mailsfinder.com');
+        console.log('Target origin for postMessage:', 'https://www.mailsfinder.com');
+        
+        // Check if iframe is actually accessible
+        try {
+          console.log('Testing iframe contentWindow access...');
+          const testAccess = iframe.contentWindow.location;
+          console.log('Iframe contentWindow accessible');
+        } catch (accessError) {
+          console.log('Iframe contentWindow access blocked (expected for cross-origin):', accessError.message);
+        }
+        
         // Wait a bit for the auth bridge JavaScript to fully load and set up listeners
         setTimeout(() => {
           try {
             console.log('Sending REQUEST_AUTH_DATA message to auth bridge...');
+            console.log('Current window origin:', window.location.origin);
+            console.log('Target origin for postMessage:', 'https://www.mailsfinder.com');
             console.log('Iframe contentWindow:', iframe.contentWindow);
+            console.log('Iframe src:', iframe.src);
             iframe.contentWindow.postMessage(
               { type: 'REQUEST_AUTH_DATA' },
               'https://www.mailsfinder.com'
             );
-            console.log('PostMessage sent successfully');
+            console.log('PostMessage sent successfully to https://www.mailsfinder.com');
           } catch (postError) {
             clearTimeout(timeout);
             window.removeEventListener('message', handleMessage);
