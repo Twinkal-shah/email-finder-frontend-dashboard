@@ -404,56 +404,86 @@ export class AuthDiagnostics {
   async testCrossDomainAuth() {
     console.log('🔍 Step 6: Testing cross-domain auth bridge...')
     
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        resolve({ error: 'Cross-domain auth test timed out' })
-      }, 10000) // 10 second timeout
+    try {
+      // Check current domain and expected domains
+      const currentDomain = window.location.hostname
+      const expectedDomains = ['app.mailsfinder.com', 'mailsfinder.com', 'localhost']
       
-      // Listen for auth bridge response
-      const handleMessage = (event) => {
-        if (event.data && event.data.type === 'USER_AUTH') {
-          clearTimeout(timeout)
-          window.removeEventListener('message', handleMessage)
-          
-          const result = {
-            receivedResponse: true,
-            hasUser: !!event.data.user,
-            hasTokens: !!event.data.tokens,
-            userData: event.data.user,
-            origin: event.origin,
-            error: event.data.error || null
+      console.log('Current domain:', currentDomain)
+      console.log('Expected domains:', expectedDomains)
+      
+      // Test if we can access the auth bridge
+      const authBridgeUrl = 'https://mailsfinder.com/auth-bridge.html'
+      const bridgeTest = await fetch(authBridgeUrl, { 
+        method: 'HEAD',
+        mode: 'no-cors'
+      }).then(() => true).catch(() => false)
+      
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve({ 
+            error: 'Cross-domain auth test timed out',
+            currentDomain,
+            expectedDomains,
+            bridgeAccessible: bridgeTest
+          })
+        }, 10000) // 10 second timeout
+        
+        // Listen for auth bridge response
+        const handleMessage = (event) => {
+          if (event.data && event.data.type === 'USER_AUTH') {
+            clearTimeout(timeout)
+            window.removeEventListener('message', handleMessage)
+            
+            const result = {
+              receivedResponse: true,
+              hasUser: !!event.data.user,
+              hasTokens: !!event.data.tokens,
+              userData: event.data.user,
+              origin: event.origin,
+              currentDomain,
+              expectedDomains,
+              bridgeAccessible: bridgeTest,
+              error: event.data.error || null
+            }
+            
+            console.log('Cross-domain auth test result:', result)
+            this.results.crossDomainTest = result
+            resolve(result)
           }
-          
-          console.log('Cross-domain auth test result:', result)
-          this.results.crossDomainTest = result
-          resolve(result)
         }
-      }
-      
-      window.addEventListener('message', handleMessage)
-      
-      // Create iframe to test auth bridge
-      const iframe = document.createElement('iframe')
-      iframe.style.display = 'none'
-      iframe.src = 'https://mailsfinder.com/auth-bridge.html'
-      
-      iframe.onload = () => {
-        // Request auth data from bridge
-        iframe.contentWindow.postMessage(
-          { type: 'REQUEST_AUTH_DATA' },
-          'https://mailsfinder.com'
-        )
-      }
-      
-      document.body.appendChild(iframe)
-      
-      // Clean up iframe after test
-      setTimeout(() => {
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe)
+        
+        window.addEventListener('message', handleMessage)
+        
+        // Create iframe to test auth bridge
+        const iframe = document.createElement('iframe')
+        iframe.style.display = 'none'
+        iframe.src = authBridgeUrl
+        
+        iframe.onload = () => {
+          // Request auth data from bridge
+          iframe.contentWindow.postMessage(
+            { type: 'REQUEST_AUTH_DATA' },
+            'https://mailsfinder.com'
+          )
         }
-      }, 11000)
-    })
+        
+        document.body.appendChild(iframe)
+        
+        // Clean up iframe after test
+        setTimeout(() => {
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe)
+          }
+        }, 11000)
+      })
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Cross-domain auth bridge test failed',
+        error: error.message
+      }
+    }
   }
 
   /**
@@ -573,6 +603,122 @@ export const authDiagnostics = new AuthDiagnostics()
 // Export individual functions for convenience
 export {
   testSupabaseConnection
+}
+
+/**
+ * Check Supabase auth configuration
+ */
+export async function checkAuthConfiguration() {
+  console.log('🔍 Step 7: Checking Supabase auth configuration...');
+  
+  try {
+    const currentDomain = window.location.hostname;
+    const currentUrl = window.location.origin;
+    const supabaseUrl = supabase.supabaseUrl;
+    const supabaseKey = supabase.supabaseKey;
+    
+    console.log('Current domain:', currentDomain);
+    console.log('Current URL:', currentUrl);
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Supabase Key (first 20 chars):', supabaseKey?.substring(0, 20) + '...');
+    
+    // Test auth settings endpoint (this will likely fail with 403, but gives us info)
+    const authSettingsUrl = `${supabaseUrl}/auth/v1/settings`;
+    let authSettings = null;
+    let authSettingsError = null;
+    
+    try {
+      const response = await fetch(authSettingsUrl, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`
+        }
+      });
+      
+      if (response.ok) {
+        authSettings = await response.json();
+      } else {
+        authSettingsError = `HTTP ${response.status}: ${response.statusText}`;
+      }
+    } catch (error) {
+      authSettingsError = error.message;
+    }
+    
+    // Check if current domain matches expected patterns
+    const expectedDomains = ['app.mailsfinder.com', 'mailsfinder.com', 'localhost'];
+    const domainMatch = expectedDomains.some(domain => 
+      currentDomain === domain || currentDomain.endsWith('.' + domain)
+    );
+    
+    return {
+      success: true,
+      message: 'Auth configuration check completed',
+      details: {
+        currentDomain,
+        currentUrl,
+        supabaseUrl,
+        supabaseKeyPrefix: supabaseKey?.substring(0, 20) + '...',
+        expectedDomains,
+        domainMatch,
+        authSettings,
+        authSettingsError,
+        recommendations: [
+          !domainMatch ? 'Current domain may not be in Supabase redirect URL allowlist' : null,
+          authSettingsError ? 'Cannot access auth settings - check if site URL is configured correctly' : null,
+          'Verify Site URL and Redirect URLs in Supabase Dashboard > Authentication > URL Configuration'
+        ].filter(Boolean)
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Auth configuration check failed',
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Standalone cross-domain auth test function
+ */
+export async function testCrossDomainAuth() {
+  console.log('🔍 Step 6: Testing cross-domain auth bridge...');
+  
+  try {
+    // Test auth bridge communication
+    const authBridgeUrl = 'https://mailsfinder.com/auth-bridge.html';
+    
+    // Check current domain and expected domains
+    const currentDomain = window.location.hostname;
+    const expectedDomains = ['app.mailsfinder.com', 'mailsfinder.com', 'localhost'];
+    
+    console.log('Current domain:', currentDomain);
+    console.log('Expected domains:', expectedDomains);
+    
+    // Test if we can access the auth bridge
+    const bridgeTest = await fetch(authBridgeUrl, { 
+      method: 'HEAD',
+      mode: 'no-cors'
+    }).then(() => true).catch(() => false);
+    
+    return {
+      success: true,
+      message: 'Cross-domain auth bridge test initiated',
+      details: {
+        bridgeUrl: authBridgeUrl,
+        currentDomain,
+        expectedDomains,
+        bridgeAccessible: bridgeTest,
+        status: 'Check browser console for auth bridge messages'
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Cross-domain auth bridge test failed',
+      error: error.message
+    };
+  }
 }
 
 // Convenience function to run diagnostics from console

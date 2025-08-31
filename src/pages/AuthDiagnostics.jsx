@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { authDiagnostics } from '../utils/authDiagnostics'
+import { authDiagnostics, checkAuthConfiguration } from '../utils/authDiagnostics'
 import { useAuth } from '../contexts/auth'
 
 const AuthDiagnostics = () => {
@@ -41,6 +41,9 @@ const AuthDiagnostics = () => {
           break
         case 'profileCreation':
           result = await authDiagnostics.testProfileCreationTrigger()
+          break
+        case 'authConfig':
+          result = await checkAuthConfiguration()
           break
         case 'crossDomain':
           result = await authDiagnostics.testCrossDomainAuth()
@@ -106,7 +109,7 @@ const AuthDiagnostics = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
           <button
             onClick={() => runManualTest('connection')}
             disabled={manualTests.connection?.running}
@@ -148,6 +151,14 @@ const AuthDiagnostics = () => {
           </button>
           
           <button
+            onClick={() => runManualTest('authConfig')}
+            disabled={manualTests.authConfig?.running}
+            className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white px-4 py-2 rounded font-medium transition-colors"
+          >
+            {manualTests.authConfig?.running ? 'Testing...' : 'Test Auth Config'}
+          </button>
+          
+          <button
             onClick={() => runManualTest('crossDomain')}
             disabled={manualTests.crossDomain?.running}
             className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded font-medium transition-colors"
@@ -170,6 +181,7 @@ const AuthDiagnostics = () => {
                   profilesTable: 'ProfilesTable Test',
                   profileFetch: 'ProfileFetch Test',
                   profileCreation: 'ProfileCreation Test',
+                  authConfig: 'Auth Configuration Test',
                   crossDomain: 'CrossDomain Test'
                 }
                 
