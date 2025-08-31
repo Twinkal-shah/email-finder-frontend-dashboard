@@ -781,29 +781,33 @@ export async function testCrossDomainAuth() {
       iframe.src = authBridgeUrl;
       
       iframe.onload = () => {
-        console.log('Auth bridge iframe loaded, sending request...');
-        try {
-          iframe.contentWindow.postMessage(
-            { type: 'REQUEST_AUTH_DATA' },
-            'https://mailsfinder.com'
-          );
-        } catch (postError) {
-          clearTimeout(timeout);
-          window.removeEventListener('message', handleMessage);
-          resolve({
-            success: false,
-            error: 'Failed to send postMessage to auth bridge',
-            details: {
-              currentDomain,
-              expectedDomains,
-              bridgeUrl: authBridgeUrl,
-              bridgeAccessible: true,
-              postMessageError: postError.message,
-              issue: 'PostMessage communication failed',
-              solution: 'Check CORS settings and iframe sandbox restrictions'
-            }
-          });
-        }
+        console.log('Auth bridge iframe loaded, waiting for scripts to initialize...');
+        // Wait a bit for the auth bridge JavaScript to fully load and set up listeners
+        setTimeout(() => {
+          try {
+            console.log('Sending REQUEST_AUTH_DATA message to auth bridge...');
+            iframe.contentWindow.postMessage(
+              { type: 'REQUEST_AUTH_DATA' },
+              'https://mailsfinder.com'
+            );
+          } catch (postError) {
+            clearTimeout(timeout);
+            window.removeEventListener('message', handleMessage);
+            resolve({
+              success: false,
+              error: 'Failed to send postMessage to auth bridge',
+              details: {
+                currentDomain,
+                expectedDomains,
+                bridgeUrl: authBridgeUrl,
+                bridgeAccessible: true,
+                postMessageError: postError.message,
+                issue: 'PostMessage communication failed',
+                solution: 'Check CORS settings and iframe sandbox restrictions'
+              }
+            });
+          }
+        }, 1000); // Wait 1 second for auth bridge to initialize
       };
       
       iframe.onerror = () => {
