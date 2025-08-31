@@ -104,9 +104,9 @@ export class AuthDiagnostics {
       // Now try the Supabase client session check
       console.log('Testing Supabase client session...')
       const sessionPromise = supabase.auth.getSession()
-      const { data: { session }, error } = await withTimeout(
-        sessionPromise, 
-        3000, 
+      const { data: { session } } = await withTimeout(
+        sessionPromise,
+        8000,
         'Session check timed out'
       )
       
@@ -150,7 +150,7 @@ export class AuthDiagnostics {
       
       const { data, error } = await withTimeout(
         queryPromise,
-        3000,
+        8000,
         'Profiles table check timed out'
       )
       
@@ -182,7 +182,7 @@ export class AuthDiagnostics {
       const sessionPromise = supabase.auth.getSession()
       const { data: { session } } = await withTimeout(
         sessionPromise,
-        3000,
+        8000,
         'Session fetch timed out during profile test'
       )
       
@@ -309,7 +309,7 @@ export class AuthDiagnostics {
       const sessionPromise = supabase.auth.getSession()
       const { data: { session } } = await withTimeout(
         sessionPromise,
-        5000,
+        8000,
         'Session fetch timed out during trigger test'
       )
       
@@ -736,7 +736,7 @@ export async function testCrossDomainAuth() {
             recommendation: 'Visit https://mailsfinder.com and log in, then return to test cross-domain authentication'
           }
         });
-      }, 5000); // Reduced timeout for faster feedback
+      }, 8000); // Increased timeout for better reliability
       
       if (!bridgeAccessible) {
         clearTimeout(timeout);
