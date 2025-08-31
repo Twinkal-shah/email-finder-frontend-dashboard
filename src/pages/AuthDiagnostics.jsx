@@ -27,6 +27,9 @@ const AuthDiagnostics = () => {
     try {
       let result
       switch (testName) {
+        case 'connection':
+          result = await authDiagnostics.testSupabaseConnection()
+          break
         case 'session':
           result = await authDiagnostics.checkSession()
           break
@@ -103,7 +106,15 @@ const AuthDiagnostics = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+          <button
+            onClick={() => runManualTest('connection')}
+            disabled={manualTests.connection?.running}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded font-medium transition-colors"
+          >
+            {manualTests.connection?.running ? 'Testing...' : 'Test Connection'}
+          </button>
+          
           <button
             onClick={() => runManualTest('session')}
             disabled={manualTests.session?.running}
@@ -152,22 +163,33 @@ const AuthDiagnostics = () => {
               Manual Test Results
             </h2>
             <div className="space-y-4">
-              {Object.entries(manualTests).map(([testName, testData]) => (
-                <div key={testName} className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-medium text-gray-900 mb-2 capitalize">
-                    {testName} Test
-                  </h3>
-                  {testData.running ? (
-                    <div className="text-blue-600">Running...</div>
-                  ) : testData.error ? (
-                    <div className="text-red-600">Error: {testData.error}</div>
-                  ) : (
-                    <pre className="text-xs bg-white p-2 rounded border overflow-auto max-h-40">
-                      {formatJson(testData.result)}
-                    </pre>
-                  )}
-                </div>
-              ))}
+              {Object.entries(manualTests).map(([testName, testData]) => {
+                const testNames = {
+                  connection: 'Connection Test',
+                  session: 'Session Test',
+                  profilesTable: 'ProfilesTable Test',
+                  profileFetch: 'ProfileFetch Test',
+                  profileCreation: 'ProfileCreation Test',
+                  crossDomain: 'CrossDomain Test'
+                }
+                
+                return (
+                  <div key={testName} className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-medium text-gray-900 mb-2">
+                      {testNames[testName] || testName}
+                    </h3>
+                    {testData.running ? (
+                      <div className="text-blue-600">Running...</div>
+                    ) : testData.error ? (
+                      <div className="text-red-600">Error: {testData.error}</div>
+                    ) : (
+                      <pre className="text-xs bg-white p-2 rounded border overflow-auto max-h-40">
+                        {formatJson(testData.result)}
+                      </pre>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

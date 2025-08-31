@@ -16,6 +16,46 @@ function withTimeout(promise, timeoutMs = 10000, timeoutMessage = 'Operation tim
 }
 
 /**
+ * Test basic Supabase connectivity
+ */
+async function testSupabaseConnection() {
+  try {
+    console.log('Testing Supabase connection...')
+    console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
+    console.log('Anon Key (first 20 chars):', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + '...')
+    
+    // Test a simple query that should work without authentication
+    const { data, error } = await withTimeout(
+      supabase.from('profiles').select('count', { count: 'exact', head: true }),
+      3000,
+      'Connection test timed out'
+    )
+    
+    if (error) {
+      console.error('Supabase connection error:', error)
+      return {
+        success: false,
+        error: error.message,
+        details: error
+      }
+    }
+    
+    console.log('Supabase connection successful')
+    return {
+      success: true,
+      message: 'Connection established'
+    }
+  } catch (error) {
+    console.error('Connection test failed:', error)
+    return {
+      success: false,
+      error: error.message,
+      details: error
+    }
+  }
+}
+
+/**
  * Comprehensive authentication diagnostics
  * Run this to identify where the auth/profile fetch is failing
  */
@@ -325,6 +365,13 @@ export class AuthDiagnostics {
   }
 
   /**
+   * Test basic Supabase connectivity
+   */
+  async testSupabaseConnection() {
+    return await testSupabaseConnection()
+  }
+
+  /**
    * Step 6: Test cross-domain auth bridge communication
    */
   async testCrossDomainAuth() {
@@ -495,6 +542,11 @@ export class AuthDiagnostics {
 
 // Export singleton instance
 export const authDiagnostics = new AuthDiagnostics()
+
+// Export individual functions for convenience
+export {
+  testSupabaseConnection
+}
 
 // Convenience function to run diagnostics from console
 window.runAuthDiagnostics = () => authDiagnostics.runAllTests()
