@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { authService, dbService } from '../services/supabase'
+import { profileService } from '../api/profileService.js'
 import { getSessionFromCookies, clearSessionCookies, isAuthenticatedFromCookies } from '../utils/cookies'
 
 const STORAGE_KEY = 'auth_user'
@@ -243,7 +244,7 @@ function setupCrossDomainListener(setUser, setTokens, setIsLoading, clearAuthTim
         // Always attempt to enrich user with latest profile from DB
         let enrichedUser = event.data.user || null
         if (event.data.user?.id) {
-          const userProfile = await authService.getUserProfile(event.data.user.id)
+          const userProfile = await profileService.getProfile(event.data.user.id)
           if (userProfile) {
             enrichedUser = {
               id: event.data.user.id,
@@ -499,7 +500,7 @@ export function AuthProvider({ children }) {
           try {
             const currentUser = await authService.getCurrentUser()
             if (currentUser) {
-              const userProfile = await authService.getUserProfile(currentUser.id)
+              const userProfile = await profileService.getProfile(currentUser.id)
               if (userProfile) {
                 setUser({
                   id: currentUser.id,
@@ -571,7 +572,7 @@ export function AuthProvider({ children }) {
     // Listen for auth state changes
     const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const userProfile = await authService.getUserProfile(session.user.id)
+        const userProfile = await profileService.getProfile(session.user.id)
         if (userProfile) {
           setUser({
             id: session.user.id,
