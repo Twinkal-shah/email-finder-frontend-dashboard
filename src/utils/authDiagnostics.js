@@ -686,7 +686,7 @@ export async function testCrossDomainAuth() {
   
   try {
     // Test auth bridge communication
-    const authBridgeUrl = 'https://www.mailsfinder.com/auth-bridge.html';
+    const authBridgeUrl = 'https://mailsfinder.com/auth-bridge.html';
     
     // Check current domain and expected domains
     const currentDomain = window.location.hostname;
@@ -791,7 +791,7 @@ export async function testCrossDomainAuth() {
             console.log('Iframe contentWindow:', iframe.contentWindow);
             iframe.contentWindow.postMessage(
               { type: 'REQUEST_AUTH_DATA' },
-              'https://www.mailsfinder.com'
+              'https://mailsfinder.com'
             );
             console.log('PostMessage sent successfully');
           } catch (postError) {
