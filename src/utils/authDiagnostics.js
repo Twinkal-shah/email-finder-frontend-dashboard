@@ -695,28 +695,152 @@ export async function testCrossDomainAuth() {
     console.log('Current domain:', currentDomain);
     console.log('Expected domains:', expectedDomains);
     
-    // Test if we can access the auth bridge
-    const bridgeTest = await fetch(authBridgeUrl, { 
-      method: 'HEAD',
-      mode: 'no-cors'
-    }).then(() => true).catch(() => false);
+    // Test if we can access the auth bridge with proper error handling
+    let bridgeAccessible = false;
+    let bridgeError = null;
     
-    return {
-      success: true,
-      message: 'Cross-domain auth bridge test initiated',
-      details: {
-        bridgeUrl: authBridgeUrl,
-        currentDomain,
-        expectedDomains,
-        bridgeAccessible: bridgeTest,
-        status: 'Check browser console for auth bridge messages'
+    try {
+      const response = await fetch(authBridgeUrl, { 
+        method: 'GET',
+        mode: 'cors'
+      });
+      bridgeAccessible = response.ok;
+      if (!response.ok) {
+        bridgeError = `HTTP ${response.status}: ${response.statusText}`;
       }
-    };
+    } catch (fetchError) {
+      bridgeAccessible = false;
+      bridgeError = fetchError.message;
+    }
+    
+    // Test actual cross-domain communication
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve({ 
+          success: false,
+          error: 'Cross-domain auth test timed out - auth bridge may not be properly deployed',
+          details: {
+            currentDomain,
+            expectedDomains,
+            bridgeUrl: authBridgeUrl,
+            bridgeAccessible,
+            bridgeError,
+            issue: bridgeAccessible ? 'Bridge accessible but not responding to postMessage' : 'Bridge not accessible - needs to be deployed to mailsfinder.com',
+            solution: bridgeAccessible ? 'Check browser console for postMessage errors' : 'Deploy auth-bridge.html to https://mailsfinder.com/auth-bridge.html'
+          }
+        });
+      }, 5000); // Reduced timeout for faster feedback
+      
+      if (!bridgeAccessible) {
+        clearTimeout(timeout);
+        resolve({
+          success: false,
+          error: 'Auth bridge not accessible',
+          details: {
+            currentDomain,
+            expectedDomains,
+            bridgeUrl: authBridgeUrl,
+            bridgeAccessible: false,
+            bridgeError,
+            issue: 'Auth bridge file not deployed to mailsfinder.com',
+            solution: 'Deploy the auth-bridge.html file from /public folder to https://mailsfinder.com/auth-bridge.html'
+          }
+        });
+        return;
+      }
+      
+      // Listen for auth bridge response
+      const handleMessage = (event) => {
+        if (event.data && event.data.type === 'USER_AUTH') {
+          clearTimeout(timeout);
+          window.removeEventListener('message', handleMessage);
+          
+          resolve({
+            success: true,
+            message: 'Cross-domain auth bridge communication successful',
+            details: {
+              receivedResponse: true,
+              hasUser: !!event.data.user,
+              hasTokens: !!event.data.tokens,
+              userData: event.data.user ? { email: event.data.user.email, id: event.data.user.id } : null,
+              origin: event.origin,
+              currentDomain,
+              expectedDomains,
+              bridgeAccessible: true,
+              error: event.data.error || null
+            }
+          });
+        }
+      };
+      
+      window.addEventListener('message', handleMessage);
+      
+      // Create iframe to test auth bridge
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = authBridgeUrl;
+      
+      iframe.onload = () => {
+        console.log('Auth bridge iframe loaded, sending request...');
+        try {
+          iframe.contentWindow.postMessage(
+            { type: 'REQUEST_AUTH_DATA' },
+            'https://mailsfinder.com'
+          );
+        } catch (postError) {
+          clearTimeout(timeout);
+          window.removeEventListener('message', handleMessage);
+          resolve({
+            success: false,
+            error: 'Failed to send postMessage to auth bridge',
+            details: {
+              currentDomain,
+              expectedDomains,
+              bridgeUrl: authBridgeUrl,
+              bridgeAccessible: true,
+              postMessageError: postError.message,
+              issue: 'PostMessage communication failed',
+              solution: 'Check CORS settings and iframe sandbox restrictions'
+            }
+          });
+        }
+      };
+      
+      iframe.onerror = () => {
+        clearTimeout(timeout);
+        window.removeEventListener('message', handleMessage);
+        resolve({
+          success: false,
+          error: 'Auth bridge iframe failed to load',
+          details: {
+            currentDomain,
+            expectedDomains,
+            bridgeUrl: authBridgeUrl,
+            bridgeAccessible: true,
+            issue: 'Iframe failed to load auth bridge',
+            solution: 'Check if auth bridge has proper HTML structure and no JavaScript errors'
+          }
+        });
+      };
+      
+      document.body.appendChild(iframe);
+      
+      // Clean up iframe after test
+      setTimeout(() => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      }, 6000);
+    });
   } catch (error) {
     return {
       success: false,
       message: 'Cross-domain auth bridge test failed',
-      error: error.message
+      error: error.message,
+      details: {
+        issue: 'Unexpected error during cross-domain test',
+        solution: 'Check browser console for detailed error information'
+      }
     };
   }
 }
