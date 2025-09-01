@@ -15,7 +15,7 @@ export function CreditGuard({
   fallbackComponent = null 
 }) {
   const { user, isAuthenticated } = useAuth()
-  const { hasCredits, getCreditBalance } = useCredits()
+  const { hasCredits, getCreditBalance } = useCredits(user, isAuthenticated)
   const [creditCheck, setCreditCheck] = useState(null)
   const [balance, setBalance] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -312,7 +312,8 @@ export function CreditUsageWarning({ operation, quantity = 1, onProceed, onCance
  * Hook for credit-aware operations
  */
 export function useCreditAwareOperation() {
-  const { useCredits, hasCredits } = useCredits()
+  const { user, isAuthenticated } = useAuth()
+  const { useCredits, hasCredits } = useCredits(user, isAuthenticated)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   

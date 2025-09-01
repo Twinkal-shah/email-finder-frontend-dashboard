@@ -1,6 +1,7 @@
 import { checkCredits, deductCredits } from '../api/user.js'
 import { profileService } from '../api/profileService.js'
 import { useAuth } from '../contexts/auth.jsx'
+import { useState, useEffect } from 'react'
 
 /**
  * Credit Manager Service
@@ -172,9 +173,7 @@ const creditManager = new CreditManager()
 /**
  * React hook for credit management
  */
-export function useCredits() {
-  const { user, isAuthenticated } = useAuth()
-  
+export function useCredits(user, isAuthenticated) {
   const hasCredits = async (operation, quantity = 1) => {
     if (!isAuthenticated || !user) {
       throw new Error('User not authenticated')
@@ -213,7 +212,8 @@ export function useCredits() {
  */
 export function withCreditCheck(WrappedComponent, operation, quantity = 1) {
   return function CreditProtectedComponent(props) {
-    const { hasCredits } = useCredits()
+    const { user, isAuthenticated } = useAuth()
+    const { hasCredits } = useCredits(user, isAuthenticated)
     const [creditCheck, setCreditCheck] = useState(null)
     const [loading, setLoading] = useState(true)
     

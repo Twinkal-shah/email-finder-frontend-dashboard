@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx'
 import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.jsx'
 import { useCredits } from '../services/creditManager.jsx'
+import { useAuth } from '../contexts/auth.jsx'
 
 function normalizeConfidence(raw) {
   if (raw == null) return null
@@ -46,7 +47,8 @@ export default function BulkSearchPage() {
   const [results, setResults] = useState([])
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [isRunning, setIsRunning] = useState(false)
-  const { hasCredits, useCredits } = useCredits()
+  const { user, isAuthenticated } = useAuth()
+  const { hasCredits, useCredits } = useCredits(user, isAuthenticated)
 
   const pickFrom = (obj, keys) => {
     for (const key of keys) {

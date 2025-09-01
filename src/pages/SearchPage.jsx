@@ -5,6 +5,7 @@ import Papa from 'papaparse'
 import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
 import { useCredits } from '../services/creditManager.jsx'
+import { useAuth } from '../contexts/auth.jsx'
 
 function normalizeConfidence(raw, statusLike, validLike) {
   if (raw == null) {
@@ -70,7 +71,8 @@ export default function SearchPage() {
   const [mode, setMode] = useState('Person')
   const [formError, setFormError] = useState('')
   const { rows: accumulatedRows, appendRows } = useFindResults()
-  const { hasCredits, useCredits } = useCredits()
+  const { user, isAuthenticated } = useAuth()
+  const { hasCredits, useCredits } = useCredits(user, isAuthenticated)
 
   const findMutation = useMutation({
     mutationFn: (payload) => findEmail(payload),

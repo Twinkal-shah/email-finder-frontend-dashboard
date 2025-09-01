@@ -5,6 +5,7 @@ import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
 import { useCredits } from '../services/creditManager.jsx'
+import { useAuth } from '../contexts/auth.jsx'
 
 // function normalizeVerifyStatus(payload) {
 //   if (!payload) return '-'
@@ -34,7 +35,8 @@ export default function VerifyPage() {
   const [email, setEmail] = useState('')
   const [bulkRows, setBulkRows] = useState([])
   const [bulkResults, setBulkResults] = useState([])
-  const { hasCredits, useCredits } = useCredits()
+  const { user, isAuthenticated } = useAuth()
+  const { hasCredits, useCredits } = useCredits(user, isAuthenticated)
 
   const verifyMutation = useMutation({ 
     mutationFn: (payload) => verifyEmail(payload),
