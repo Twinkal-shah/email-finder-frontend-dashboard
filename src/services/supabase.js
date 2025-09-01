@@ -145,7 +145,7 @@ export const authService = {
   async getUser(accessToken) {
     try {
       // Set the session with the provided token
-      const { data, error } = await supabase.auth.setSession({
+      const { error } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: null
       })

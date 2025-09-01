@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { authService } from '../services/supabase'
 
 const UsersList = () => {
@@ -9,11 +9,7 @@ const UsersList = () => {
   const [totalUsers, setTotalUsers] = useState(0)
   const usersPerPage = 10
 
-  useEffect(() => {
-    fetchUsers()
-  }, [currentPage])
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -31,7 +27,11 @@ const UsersList = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, usersPerPage])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'

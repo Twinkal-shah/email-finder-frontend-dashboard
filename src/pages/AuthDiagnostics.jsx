@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import { authDiagnostics, testSupabaseConnection, checkAuthConfiguration, testCrossDomainAuth } from '../utils/authDiagnostics'
-import { debugSupabaseConnection, quickSessionCheck } from '../utils/debugSupabase'
-import { useAuth } from '../contexts/auth'
+import React, { useState } from 'react'
+import { authDiagnostics, checkAuthConfiguration } from '../utils/authDiagnostics'
+import { debugSupabaseConnection } from '../utils/debugSupabase'
+import { useAuth } from '../hooks/useAuth.js'
 
 const AuthDiagnostics = () => {
   const [diagnosticResults, setDiagnosticResults] = useState(null)
@@ -72,9 +72,7 @@ const AuthDiagnostics = () => {
     return JSON.stringify(obj, null, 2)
   }
 
-  const getStatusIcon = (success) => {
-    return success ? '✅' : '❌'
-  }
+
 
   return (
     <div className="max-w-6xl mx-auto p-6">

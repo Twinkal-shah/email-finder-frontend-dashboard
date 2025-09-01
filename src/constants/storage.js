@@ -1,0 +1,1 @@
+export const STORAGE_KEY = 'find_results'

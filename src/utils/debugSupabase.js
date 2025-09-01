@@ -33,7 +33,7 @@ export async function debugSupabaseConnection() {
     console.log('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Present' : 'Missing')
     // 1. Check basic connection
     console.log('1. Testing basic connection...')
-    const { data: connectionTest, error: connectionError } = await withTimeout(
+    const { error: connectionError } = await withTimeout(
       supabase.auth.getSession(),
       5000
     )

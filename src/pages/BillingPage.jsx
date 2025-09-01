@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../contexts/auth.jsx'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '../hooks/useAuth.js'
 import { getUserProfile, getUserTransactions } from '../api/user.js'
 import { PRODUCTS, openCheckout, formatPrice, formatCredits } from '../services/lemonsqueezy.js'
-import { useCredits } from '../services/creditManager.jsx'
 
 function CreditCard({ title, credits, icon, color }) {
   return (
@@ -141,13 +140,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      loadUserData()
-    }
-  }, [isAuthenticated, user])
-  
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     try {
       setLoading(true)
       const [profile, transactionData] = await Promise.all([
@@ -163,7 +156,13 @@ export default function BillingPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user.id])
+  
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadUserData()
+    }
+  }, [isAuthenticated, user, loadUserData])
   
   const handleUpgrade = (plan, userEmail) => {
     openCheckout(plan, userEmail, {

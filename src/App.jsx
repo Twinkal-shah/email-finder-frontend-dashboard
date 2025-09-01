@@ -6,7 +6,8 @@ import BulkSearchPage from './pages/BulkSearchPage.jsx'
 import BillingPage from './pages/BillingPage.jsx'
 import AuthDiagnostics from './pages/AuthDiagnostics.jsx'
 import { FindResultsProvider } from './contexts/findResults.jsx'
-import { AuthProvider, useAuth } from './contexts/auth.jsx'
+import { AuthProvider } from './contexts/auth.jsx'
+import { useAuth } from './hooks/useAuth.js'
 import { useRealTimeCredits } from './hooks/useRealTimeCredits.js'
 import DebugCredits from './components/DebugCredits.jsx'
 import TestCredits from './components/TestCredits.jsx'
@@ -168,33 +169,45 @@ function AuthGuard({ children }) {
   return children
 }
 
+function AuthDebugInfo() {
+  const { user, isAuthenticated, isLoading, authError } = useAuth()
+  
+  return (
+    <div className="fixed top-0 right-0 bg-black text-white p-2 text-xs z-50 max-w-xs">
+      <div>Loading: {isLoading ? 'Yes' : 'No'}</div>
+      <div>Authenticated: {isAuthenticated ? 'Yes' : 'No'}</div>
+      <div>User: {user ? user.email || user.id : 'None'}</div>
+      <div>Error: {authError || 'None'}</div>
+    </div>
+  )
+}
+
 function Layout() {
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-background text-foreground">
-        <Topbar />
-        <div className="flex flex-col lg:flex-row">
-          <Sidebar />
-          <main className="flex-1 p-4 lg:p-6">
-            <div className="max-w-7xl mx-auto">
-              <div className="bg-card border border-border rounded-lg shadow-sm p-6">
-                <Routes>
-                  <Route path="/search" element={<SearchPage />} />
-                  <Route path="/verify" element={<VerifyPage />} />
-                  <Route path="/bulk-search" element={<BulkSearchPage />} />
-                  <Route path="/billing" element={<BillingPage />} />
-                  <Route path="/diagnostics" element={<AuthDiagnostics />} />
-                  <Route path="/" element={<Navigate to="/search" replace />} />
-                  <Route path="*" element={<div className="p-6 text-center">Not Found</div>} />
-                </Routes>
-              </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <AuthDebugInfo />
+      <Topbar />
+      <div className="flex flex-col lg:flex-row">
+        <Sidebar />
+        <main className="flex-1 p-4 lg:p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-card border border-border rounded-lg shadow-sm p-6">
+              <Routes>
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/verify" element={<VerifyPage />} />
+                <Route path="/bulk-search" element={<BulkSearchPage />} />
+                <Route path="/billing" element={<BillingPage />} />
+                <Route path="/diagnostics" element={<AuthDiagnostics />} />
+                <Route path="/" element={<Navigate to="/search" replace />} />
+                <Route path="*" element={<div className="p-6 text-center">Not Found</div>} />
+              </Routes>
             </div>
-          </main>
-        </div>
-        <DebugCredits />
-        <TestCredits />
+          </div>
+        </main>
       </div>
-    </AuthGuard>
+      <DebugCredits />
+      <TestCredits />
+    </div>
   )
 }
 

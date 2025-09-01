@@ -117,7 +117,7 @@ export class AuthDiagnostics {
         userEmail: session?.user?.email || null,
         hasAccessToken: !!session?.access_token,
         tokenExpiry: session?.expires_at || null,
-        error: error?.message || null,
+        error: null,
         domain: window.location.hostname,
         authEndpointStatus: authResponse.status,
         issue: !session ? 'No active session found' : null,
@@ -720,8 +720,38 @@ export async function testCrossDomainAuth() {
     
     // Test actual cross-domain communication
     return new Promise((resolve) => {
-      // Define timeout first
-      const timeout = setTimeout(() => {
+      let timeout;
+      
+      // Listen for auth bridge response - define first
+      const handleMessage = (event) => {
+        if (event.data && event.data.type === 'USER_AUTH') {
+          clearTimeout(timeout);
+          window.removeEventListener('message', handleMessage);
+          
+          const hasUser = !!event.data.user;
+          const hasTokens = !!event.data.tokens;
+          
+          resolve({
+            success: hasUser && hasTokens,
+            user: event.data.user,
+            tokens: event.data.tokens,
+            details: {
+              currentDomain,
+              expectedDomains,
+              bridgeUrl: authBridgeUrl,
+              bridgeAccessible,
+              bridgeError,
+              hasUser,
+              hasTokens,
+              issue: !hasUser ? 'No user data received from bridge' : !hasTokens ? 'No tokens received from bridge' : null,
+              solution: !hasUser ? 'User needs to authenticate on mailsfinder.com first' : !hasTokens ? 'Authentication successful but tokens missing - check bridge implementation' : 'Cross-domain authentication working correctly'
+            }
+          });
+        }
+      };
+      
+      // Define timeout after handleMessage
+      timeout = setTimeout(() => {
         window.removeEventListener('message', handleMessage);
         resolve({ 
           success: false,
@@ -738,48 +768,6 @@ export async function testCrossDomainAuth() {
           }
         });
       }, 10000);
-      
-      // Listen for auth bridge response - define after timeout
-      const handleMessage = (event) => {
-        if (event.data && event.data.type === 'USER_AUTH') {
-          clearTimeout(timeout);
-          window.removeEventListener('message', handleMessage);
-          
-          const hasUser = !!event.data.user;
-          const hasTokens = !!event.data.tokens;
-          
-          if (hasUser) {
-            resolve({
-              success: true,
-              message: 'Cross-domain authentication successful',
-              details: {
-                currentDomain,
-                expectedDomains,
-                bridgeUrl: authBridgeUrl,
-                bridgeAccessible,
-                user: event.data.user,
-                hasTokens,
-                recommendation: 'Cross-domain authentication is working correctly'
-              }
-            });
-          } else {
-            resolve({
-              success: false,
-              error: 'No user data received from auth bridge',
-              details: {
-                currentDomain,
-                expectedDomains,
-                bridgeUrl: authBridgeUrl,
-                bridgeAccessible,
-                hasTokens,
-                issue: 'Auth bridge responded but no user data found',
-                solution: 'User needs to authenticate on mailsfinder.com first',
-                recommendation: 'Visit https://mailsfinder.com and log in, then return to test'
-              }
-            });
-          }
-        }
-      };
       
       if (!bridgeAccessible) {
         resolve({
@@ -815,7 +803,7 @@ export async function testCrossDomainAuth() {
         // Check if iframe is actually accessible
         try {
           console.log('Testing iframe contentWindow access...');
-          const testAccess = iframe.contentWindow.location;
+          iframe.contentWindow.location;
           console.log('Iframe contentWindow accessible');
         } catch (accessError) {
           console.log('Iframe contentWindow access blocked (expected for cross-origin):', accessError.message);

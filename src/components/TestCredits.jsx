@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useAuth } from '../contexts/auth.jsx'
+import { useAuth } from '../hooks/useAuth.js'
 import { getUserProfile } from '../api/user.js'
 import { supabase } from '../services/supabase.js'
 

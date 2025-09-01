@@ -1,8 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useEffect, useMemo, useState } from 'react'
+import { STORAGE_KEY } from '../constants/storage.js'
 
-const STORAGE_KEY = 'find_results'
-
-const FindResultsContext = createContext(null)
+export const FindResultsContext = createContext(null)
 
 export function FindResultsProvider({ children }) {
   const [rows, setRows] = useState([])
@@ -15,14 +14,18 @@ export function FindResultsProvider({ children }) {
         const parsed = JSON.parse(raw)
         if (Array.isArray(parsed)) setRows(parsed)
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load find results from localStorage:', error)
+    }
   }, [])
 
   // Persist to localStorage whenever rows change
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))
-    } catch {}
+    } catch (error) {
+      console.error('Failed to save find results to localStorage:', error)
+    }
   }, [rows])
 
   const value = useMemo(() => ({
@@ -37,12 +40,6 @@ export function FindResultsProvider({ children }) {
       {children}
     </FindResultsContext.Provider>
   )
-}
-
-export function useFindResults() {
-  const ctx = useContext(FindResultsContext)
-  if (!ctx) throw new Error('useFindResults must be used within FindResultsProvider')
-  return ctx
 }
 
 

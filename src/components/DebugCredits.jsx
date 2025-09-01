@@ -1,11 +1,15 @@
 import React from 'react'
-import { useAuth } from '../contexts/auth.jsx'
+import { useAuth } from '../hooks/useAuth.js'
 import { useRealTimeCredits } from '../hooks/useRealTimeCredits.js'
 
 export function DebugCredits() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
-  const { creditData, refetch } = useRealTimeCredits(user)
+  const { creditData } = useRealTimeCredits(user)
   const { find, verify, loading: creditsLoading } = creditData
+  
+  const plan = 'Free (default)'
+  const fullName = user?.email?.split('@')[0] || 'User'
+  const error = null // No error handling in this debug component
 
   return (
     <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg p-4 shadow-lg max-w-sm z-50">
@@ -22,8 +26,8 @@ export function DebugCredits() {
         <div><strong>Credits Loading:</strong> {creditsLoading ? 'Yes' : 'No'}</div>
         <div><strong>Find Credits:</strong> {find}</div>
         <div><strong>Verify Credits:</strong> {verify}</div>
-        <div><strong>Plan:</strong> Free (default)</div>
-        <div><strong>Full Name:</strong> {user?.email?.split('@')[0] || 'User'}</div>
+        <div><strong>Plan:</strong> {plan}</div>
+        <div><strong>Full Name:</strong> {fullName}</div>
       </div>
       
       <button 

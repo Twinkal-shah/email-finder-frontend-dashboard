@@ -4,7 +4,8 @@ import * as XLSX from 'xlsx'
 import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.jsx'
 import { useCredits } from '../services/creditManager.jsx'
-import { useAuth } from '../contexts/auth.jsx'
+import creditManager from '../services/creditUtils.js'
+import { useAuth } from '../hooks/useAuth.js'
 
 function normalizeConfidence(raw) {
   if (raw == null) return null
@@ -48,7 +49,7 @@ export default function BulkSearchPage() {
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [isRunning, setIsRunning] = useState(false)
   const { user, isAuthenticated } = useAuth()
-  const { hasCredits, useCredits } = useCredits(user, isAuthenticated)
+  const { hasCredits } = useCredits(user, isAuthenticated)
 
   const pickFrom = (obj, keys) => {
     for (const key of keys) {
@@ -121,8 +122,8 @@ export default function BulkSearchPage() {
         ])
         
         // Deduct credits for successful email finding
-        if (items.length > 0) {
-          await useCredits('find', items.length)
+        if (items.length > 0 && user?.id) {
+          await creditManager.useCredits(user.id, 'find', items.length)
         }
       } catch (e) {
         setResults(prev => [...prev, { name: current.name, domain: current.domain, email: '-', confidence: '-', error: e.message }])

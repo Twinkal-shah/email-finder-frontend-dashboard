@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useCredits } from '../services/creditManager.jsx'
-import { useAuth } from '../contexts/auth.jsx'
+import { useAuth } from '../hooks/useAuth.js'
 import { AlertTriangle, CreditCard, Zap } from 'lucide-react'
 
 /**
@@ -21,15 +21,7 @@ export function CreditGuard({
   const [checkLoading, setCheckLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      checkCreditsOnly()
-    } else {
-      setCheckLoading(false)
-    }
-  }, [isAuthenticated, user, operation, quantity])
-
-  const checkCreditsOnly = async () => {
+  const checkCreditsOnly = useCallback(async () => {
     try {
       setCheckLoading(true)
       setError(null)
@@ -42,9 +34,17 @@ export function CreditGuard({
     } finally {
       setCheckLoading(false)
     }
-  }
+  }, [hasCredits, operation, quantity])
 
-  const refreshCredits = () => {
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      checkCreditsOnly()
+    } else {
+      setCheckLoading(false)
+    }
+  }, [isAuthenticated, user, operation, quantity, checkCreditsOnly])
+
+  const refreshCredits = async () => {
     checkCreditsOnly()
   }
 
@@ -308,7 +308,7 @@ export function CreditUsageWarning({ operation, quantity = 1, onProceed, onCance
  */
 export function useCreditAwareOperation() {
   const { user, isAuthenticated } = useAuth()
-  const { useCredits, hasCredits } = useCredits(user, isAuthenticated)
+  const { useCredits: deductCredits, hasCredits } = useCredits(user, isAuthenticated)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   
@@ -328,7 +328,7 @@ export function useCreditAwareOperation() {
       
       // Deduct credits only if operation was successful
       if (result && result.success !== false) {
-        await useCredits(operation, quantity)
+        await deductCredits(operation, quantity)
       }
       
       return result

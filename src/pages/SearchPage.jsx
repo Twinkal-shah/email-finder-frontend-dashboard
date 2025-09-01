@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useFindResults } from '../contexts/findResults.jsx'
+import { useFindResults } from '../hooks/useFindResults.js'
 import { useMutation } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { findEmail } from '../services/api.js'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
 import { useCredits } from '../services/creditManager.jsx'
-import { useAuth } from '../contexts/auth.jsx'
+import creditManager from '../services/creditUtils.js'
+import { useAuth } from '../hooks/useAuth.js'
 
 function normalizeConfidence(raw, statusLike, validLike) {
   if (raw == null) {
@@ -72,32 +73,40 @@ export default function SearchPage() {
   const [formError, setFormError] = useState('')
   const { rows: accumulatedRows, appendRows } = useFindResults()
   const { user, isAuthenticated } = useAuth()
-  const { hasCredits, useCredits } = useCredits(user, isAuthenticated)
+  const { hasCredits } = useCredits(user, isAuthenticated)
+
+  const handleSuccessfulFind = async (res) => {
+    const payload = res?.data
+    const rows = Array.isArray(payload) ? payload : (payload ? [payload] : [])
+    const normalizedRows = rows.map((r) => {
+      const confidenceRaw = r.confidence ?? r.confidence_score ?? r.score ?? r.probability ?? r.confidencePercent
+      const statusLike = r.status ?? r.result ?? r.verdict
+      const validLike = r.valid ?? r.is_valid
+      return {
+        ...r,
+        _name: pickName(r, name),
+        _confidence: normalizeConfidence(confidenceRaw, statusLike, validLike),
+      }
+    })
+    appendRows(normalizedRows)
+  }
 
   const findMutation = useMutation({
     mutationFn: (payload) => findEmail(payload),
-    onSuccess: async (res) => {
-      const payload = res?.data
-      const rows = Array.isArray(payload) ? payload : (payload ? [payload] : [])
-      const normalizedRows = rows.map((r) => {
-        const confidenceRaw = r.confidence ?? r.confidence_score ?? r.score ?? r.probability ?? r.confidencePercent
-        const statusLike = r.status ?? r.result ?? r.verdict
-        const validLike = r.valid ?? r.is_valid
-        return {
-          ...r,
-          _name: pickName(r, name),
-          _confidence: normalizeConfidence(confidenceRaw, statusLike, validLike),
-        }
-      })
-      appendRows(normalizedRows)
-      
-      // Deduct credits for successful email finding
-      if (rows.length > 0) {
-        await useCredits('find', rows.length)
-      }
-    },
+    onSuccess: handleSuccessfulFind,
     onSettled: () => setFormError(''),
   })
+
+  // Handle credit deduction after successful mutation
+  useEffect(() => {
+    if (findMutation.isSuccess && findMutation.data?.data && user?.id) {
+      const payload = findMutation.data.data
+      const rows = Array.isArray(payload) ? payload : (payload ? [payload] : [])
+      if (rows.length > 0) {
+        creditManager.useCredits(user.id, 'find', rows.length)
+      }
+    }
+  }, [findMutation.isSuccess, findMutation.data, user?.id])
 
   const parseNames = (value) => value.split(',').map(n => n.trim()).filter(Boolean)
 
@@ -150,7 +159,7 @@ export default function SearchPage() {
 
   const exportCsv = () => {
     const forCsv = tableRows.map((r) => ({
-      Name: r._name,
+      Name: r.name,
       Email: r.email || '-',
       catch_all: r.catch_all ?? '',
       connections: Array.isArray(r.connections) ? r.connections.join(', ') : (r.connections ?? ''),
@@ -237,7 +246,7 @@ export default function SearchPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs text-muted-foreground">Top match</div>
-                    <div className="text-base font-medium">{top._name}</div>
+                    <div className="text-base font-medium">{top.name}</div>
                     <div className="text-sm text-foreground">{top.email || '-'}</div>
                   </div>
                   {/* <ConfidencePill value={top._confidence} /> */}
@@ -283,7 +292,7 @@ export default function SearchPage() {
                 <tbody>
                   {tableRows.map((r, i) => (
                     <tr key={i} className="hover:bg-muted/30">
-                      <td className="p-2 border border-border">{r._name}</td>
+                      <td className="p-2 border border-border">{r.name}</td>
                       <td className="p-2 border border-border">{r.email || '-'}</td>
                       <td className="p-2 border border-border">{r.catch_all == null ? '-' : String(r.catch_all)}</td>
                       <td className="p-2 border border-border">{r.domain || '-'}</td>

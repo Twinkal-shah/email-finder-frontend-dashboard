@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { verifyEmail } from '../services/api.js'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card.jsx'
 import { useCredits } from '../services/creditManager.jsx'
-import { useAuth } from '../contexts/auth.jsx'
+import creditManager from '../services/creditUtils.js'
+import { useAuth } from '../hooks/useAuth.js'
 
 // function normalizeVerifyStatus(payload) {
 //   if (!payload) return '-'
@@ -36,17 +37,18 @@ export default function VerifyPage() {
   const [bulkRows, setBulkRows] = useState([])
   const [bulkResults, setBulkResults] = useState([])
   const { user, isAuthenticated } = useAuth()
-  const { hasCredits, useCredits } = useCredits(user, isAuthenticated)
+  const { hasCredits } = useCredits(user, isAuthenticated)
 
   const verifyMutation = useMutation({ 
-    mutationFn: (payload) => verifyEmail(payload),
-    onSuccess: async (res) => {
-      // Deduct credits for successful email verification
-      if (res?.data) {
-        await useCredits('verify', 1)
-      }
-    }
+    mutationFn: (payload) => verifyEmail(payload)
   })
+
+  // Handle credit deduction after successful verification
+  useEffect(() => {
+    if (verifyMutation.isSuccess && verifyMutation.data?.data && user?.id) {
+      creditManager.useCredits(user.id, 'verify', 1)
+    }
+  }, [verifyMutation.isSuccess, verifyMutation.data, user?.id])
 
   const onVerify = async (e) => {
     e.preventDefault()
@@ -89,7 +91,7 @@ export default function VerifyPage() {
         const data = resp.data || {}
         const status = normalizeVerifyStatus(data)
         setBulkResults(prev => [...prev, { email: e, status, _raw: data }])
-      } catch (err) {
+      } catch {
         setBulkResults(prev => [...prev, { email: e, status: 'error' }])
       }
     }
@@ -181,7 +183,7 @@ export default function VerifyPage() {
                         <span className="px-2 py-1 rounded bg-muted text-sm text-foreground">{result.status}</span>
                       </td>
                       <td className="border border-border px-4 py-2">
-                        <pre className="text-xs overflow-auto max-h-20 text-muted-foreground">{JSON.stringify(result._raw, null, 2)}</pre>
+                        <pre className="text-xs overflow-auto max-h-20 text-muted-foreground">{JSON.stringify(result._raw, null, 2)}</pre> {/* eslint-disable-line no-underscore-dangle */}
                       </td>
                     </tr>
                   ))}
