@@ -92,7 +92,8 @@ export default function BulkSearchPage() {
 
   const runBatches = async () => {
     // Check if user has credits for bulk email finding
-    if (!hasCredits('find')) {
+    const creditCheck = await hasCredits('find', mapped.length)
+    if (!creditCheck.hasCredits) {
       alert('Insufficient credits for bulk email finding. Please upgrade your plan.')
       return
     }

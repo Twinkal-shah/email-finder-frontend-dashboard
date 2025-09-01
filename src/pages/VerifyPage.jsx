@@ -48,12 +48,13 @@ export default function VerifyPage() {
     }
   })
 
-  const onVerify = (e) => {
+  const onVerify = async (e) => {
     e.preventDefault()
     if (!email) return
     
     // Check if user has credits for email verification
-    if (!hasCredits('verify')) {
+    const creditCheck = await hasCredits('verify', 1)
+    if (!creditCheck.hasCredits) {
       alert('Insufficient credits for email verification. Please upgrade your plan.')
       return
     }

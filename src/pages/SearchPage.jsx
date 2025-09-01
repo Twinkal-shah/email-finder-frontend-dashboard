@@ -101,12 +101,13 @@ export default function SearchPage() {
 
   const parseNames = (value) => value.split(',').map(n => n.trim()).filter(Boolean)
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
 
     // Check if user has credits for finding emails
-    if (!hasCredits('find')) {
+    const creditCheck = await hasCredits('find', 1)
+    if (!creditCheck.hasCredits) {
       setFormError('Insufficient credits for email finding. Please upgrade your plan.')
       return
     }
