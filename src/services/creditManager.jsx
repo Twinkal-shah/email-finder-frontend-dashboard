@@ -1,6 +1,5 @@
 import { checkCredits, deductCredits } from '../api/user.js'
 import { profileService } from '../api/profileService.js'
-import { useAuth } from '../contexts/auth.jsx'
 import { useState, useEffect } from 'react'
 
 /**
@@ -172,58 +171,78 @@ const creditManager = new CreditManager()
 
 /**
  * React hook for credit management
+ * @param {Object} user - User object with id
+ * @param {boolean} isAuthenticated - Authentication status
  */
 export function useCredits(user, isAuthenticated) {
-  const hasCredits = async (operation, quantity = 1) => {
-    if (!isAuthenticated || !user) {
-      throw new Error('User not authenticated')
+  const [creditData, setCreditData] = useState({
+    find: 0,
+    verify: 0,
+    loading: true
+  })
+
+  const fetchCredits = async () => {
+    if (!user?.id || !isAuthenticated) {
+      setCreditData({ find: 0, verify: 0, loading: false })
+      return
     }
-    
-    return await creditManager.hasCredits(user.id, operation, quantity)
-  }
-  
-  const useCredits = async (operation, quantity = 1) => {
-    if (!isAuthenticated || !user) {
-      throw new Error('User not authenticated')
+
+    try {
+      const balance = await creditManager.getCreditBalance(user.id)
+      setCreditData({
+        find: balance.find,
+        verify: balance.verify,
+        loading: false
+      })
+    } catch (error) {
+      console.error('Error fetching credits:', error)
+      setCreditData({ find: 0, verify: 0, loading: false })
     }
-    
-    return await creditManager.useCredits(user.id, operation, quantity)
   }
-  
-  const getCreditBalance = async () => {
-    if (!isAuthenticated || !user) {
-      throw new Error('User not authenticated')
-    }
-    
-    return await creditManager.getCreditBalance(user.id)
-  }
-  
+
+  useEffect(() => {
+    fetchCredits()
+  }, [user?.id, isAuthenticated])
+
   return {
-    hasCredits,
-    useCredits,
-    getCreditBalance,
-    calculateCreditsNeeded: creditManager.calculateCreditsNeeded.bind(creditManager),
-    getPlanLimits: creditManager.getPlanLimits.bind(creditManager)
+    ...creditData,
+    hasCredits: async (operation, quantity = 1) => {
+      if (!user?.id) return { hasCredits: false, error: 'User not authenticated' }
+      return await creditManager.hasCredits(user.id, operation, quantity)
+    },
+    useCredits: async (operation, quantity = 1) => {
+      if (!user?.id) throw new Error('User not authenticated')
+      const result = await creditManager.useCredits(user.id, operation, quantity)
+      await fetchCredits() // Refresh credits after use
+      return result
+    },
+    refetch: fetchCredits
   }
 }
 
 /**
  * Higher-order component for credit protection
+ * Usage: withCreditCheck(Component, operation, quantity)
+ * The wrapped component must receive user, isAuthenticated, and hasCredits as props
  */
 export function withCreditCheck(WrappedComponent, operation, quantity = 1) {
   return function CreditProtectedComponent(props) {
-    const { user, isAuthenticated } = useAuth()
-    const { hasCredits } = useCredits(user, isAuthenticated)
+    const { user, isAuthenticated } = props
     const [creditCheck, setCreditCheck] = useState(null)
     const [loading, setLoading] = useState(true)
     
     useEffect(() => {
       checkUserCredits()
-    }, [])
-    
+    }, [user?.id, isAuthenticated])
+
     const checkUserCredits = async () => {
       try {
-        const result = await hasCredits(operation, quantity)
+        if (!user?.id || !isAuthenticated) {
+          setCreditCheck({ hasCredits: false, error: 'User not authenticated' })
+          return
+        }
+        
+        const result = await creditManager.hasCredits(user.id, operation, quantity)
         setCreditCheck(result)
       } catch (error) {
         setCreditCheck({ hasCredits: false, error: error.message })

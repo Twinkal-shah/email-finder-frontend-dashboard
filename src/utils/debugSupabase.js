@@ -6,7 +6,7 @@ import { supabase } from '../services/supabase'
 function withTimeout(promise, timeoutMs = 10000) {
   return Promise.race([
     promise,
-    new Promise((_, reject) => 
+    new Promise((resolve, reject) => 
       setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
     )
   ])

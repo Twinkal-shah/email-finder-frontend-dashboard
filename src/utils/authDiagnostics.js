@@ -9,7 +9,7 @@ import { supabase } from '../services/supabase'
 function withTimeout(promise, timeoutMs = 10000, timeoutMessage = 'Operation timed out') {
   return Promise.race([
     promise,
-    new Promise((_, reject) => 
+    new Promise((resolve, reject) => 
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
     )
   ])
@@ -720,6 +720,7 @@ export async function testCrossDomainAuth() {
     
     // Test actual cross-domain communication
     return new Promise((resolve) => {
+      // Define timeout first
       const timeout = setTimeout(() => {
         window.removeEventListener('message', handleMessage);
         resolve({ 
@@ -736,10 +737,51 @@ export async function testCrossDomainAuth() {
             recommendation: 'Visit https://mailsfinder.com and log in, then return to test cross-domain authentication'
           }
         });
-      }, 8000); // Increased timeout for better reliability
+      }, 10000);
+      
+      // Listen for auth bridge response - define after timeout
+      const handleMessage = (event) => {
+        if (event.data && event.data.type === 'USER_AUTH') {
+          clearTimeout(timeout);
+          window.removeEventListener('message', handleMessage);
+          
+          const hasUser = !!event.data.user;
+          const hasTokens = !!event.data.tokens;
+          
+          if (hasUser) {
+            resolve({
+              success: true,
+              message: 'Cross-domain authentication successful',
+              details: {
+                currentDomain,
+                expectedDomains,
+                bridgeUrl: authBridgeUrl,
+                bridgeAccessible,
+                user: event.data.user,
+                hasTokens,
+                recommendation: 'Cross-domain authentication is working correctly'
+              }
+            });
+          } else {
+            resolve({
+              success: false,
+              error: 'No user data received from auth bridge',
+              details: {
+                currentDomain,
+                expectedDomains,
+                bridgeUrl: authBridgeUrl,
+                bridgeAccessible,
+                hasTokens,
+                issue: 'Auth bridge responded but no user data found',
+                solution: 'User needs to authenticate on mailsfinder.com first',
+                recommendation: 'Visit https://mailsfinder.com and log in, then return to test'
+              }
+            });
+          }
+        }
+      };
       
       if (!bridgeAccessible) {
-        clearTimeout(timeout);
         resolve({
           success: false,
           error: 'Auth bridge not accessible',
@@ -755,54 +797,6 @@ export async function testCrossDomainAuth() {
         });
         return;
       }
-      
-      // Listen for auth bridge response
-      const handleMessage = (event) => {
-        if (event.data && event.data.type === 'USER_AUTH') {
-          clearTimeout(timeout);
-          window.removeEventListener('message', handleMessage);
-          
-          const hasUser = !!event.data.user;
-          const hasTokens = !!event.data.tokens;
-          
-          if (hasUser) {
-            resolve({
-              success: true,
-              message: 'Cross-domain auth bridge communication successful - user authenticated',
-              details: {
-                receivedResponse: true,
-                hasUser: true,
-                hasTokens,
-                userData: { email: event.data.user.email, id: event.data.user.id },
-                origin: event.origin,
-                currentDomain,
-                expectedDomains,
-                bridgeAccessible: true,
-                error: event.data.error || null
-              }
-            });
-          } else {
-            resolve({
-              success: false,
-              error: 'No user authenticated on mailsfinder.com',
-              message: 'Cross-domain auth bridge responded but no user is authenticated',
-              details: {
-                receivedResponse: true,
-                hasUser: false,
-                hasTokens: false,
-                userData: null,
-                origin: event.origin,
-                currentDomain,
-                expectedDomains,
-                bridgeAccessible: true,
-                error: event.data.error || null,
-                issue: 'User must authenticate on mailsfinder.com first',
-                solution: 'Visit https://mailsfinder.com and log in, then return to app.mailsfinder.com'
-              }
-            });
-          }
-        }
-      };
       
       window.addEventListener('message', handleMessage);
       

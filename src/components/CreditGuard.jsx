@@ -15,42 +15,37 @@ export function CreditGuard({
   fallbackComponent = null 
 }) {
   const { user, isAuthenticated } = useAuth()
-  const { hasCredits, getCreditBalance } = useCredits(user, isAuthenticated)
+  const { hasCredits, find, verify, loading: creditsLoading } = useCredits(user, isAuthenticated)
   const [creditCheck, setCreditCheck] = useState(null)
-  const [balance, setBalance] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const balance = { find, verify }
+  const [checkLoading, setCheckLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      checkCreditsAndBalance()
+      checkCreditsOnly()
     } else {
-      setLoading(false)
+      setCheckLoading(false)
     }
   }, [isAuthenticated, user, operation, quantity])
 
-  const checkCreditsAndBalance = async () => {
+  const checkCreditsOnly = async () => {
     try {
-      setLoading(true)
+      setCheckLoading(true)
       setError(null)
       
-      const [creditResult, balanceResult] = await Promise.all([
-        hasCredits(operation, quantity),
-        getCreditBalance()
-      ])
-      
+      const creditResult = await hasCredits(operation, quantity)
       setCreditCheck(creditResult)
-      setBalance(balanceResult)
     } catch (err) {
       console.error('Error checking credits:', err)
       setError(err.message)
     } finally {
-      setLoading(false)
+      setCheckLoading(false)
     }
   }
 
   const refreshCredits = () => {
-    checkCreditsAndBalance()
+    checkCreditsOnly()
   }
 
   if (!isAuthenticated) {
@@ -72,7 +67,7 @@ export function CreditGuard({
     )
   }
 
-  if (loading) {
+  if (checkLoading || creditsLoading) {
     return (
       <div className="text-center p-6">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>

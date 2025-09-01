@@ -18,7 +18,7 @@ export function TestCredits() {
       setLoading(true)
       
       // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((resolve, reject) => 
         setTimeout(() => reject(new Error('Operation timed out after 10 seconds')), 10000)
       )
       
@@ -96,7 +96,7 @@ export function TestCredits() {
       setDirectLoading(true)
       
       // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((resolve, reject) => 
         setTimeout(() => reject(new Error('Direct query timed out after 10 seconds')), 10000)
       )
       
