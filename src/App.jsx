@@ -132,7 +132,7 @@ function Topbar() {
 
 // Authentication Guard Component
 function AuthGuard({ children }) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
 
   if (isLoading) {
     return (
@@ -145,7 +145,8 @@ function AuthGuard({ children }) {
     )
   }
 
-  if (!isAuthenticated) {
+  // Check for user existence instead of just isAuthenticated flag
+  if (!user || !user.id) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
